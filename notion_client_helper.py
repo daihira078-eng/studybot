@@ -187,6 +187,10 @@ def _parse_minutes(text: str) -> int:
         h2 = re.search(r'(\d+(?:\.\d+)?)\s*h', text)
         if h2:
             total += float(h2.group(1)) * 60
+        else:
+            plain = re.search(r'^\s*(\d+)\s*$', text)
+            if plain:
+                total += int(plain.group(1))
     return int(total)
 
 
