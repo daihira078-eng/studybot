@@ -237,7 +237,7 @@ def get_recorded_subjects() -> list:
         return []
     rt = entry["properties"].get("科目記録", {}).get("rich_text", [])
     text = rt[0]["plain_text"] if rt else ""
-    return [line.split("::")[0] for line in text.strip().split("\n") if "::" in line]
+    return [s.strip() for s in text.split("、") if s.strip()]
 
 
 def start_subject_record(subject: str):
@@ -287,16 +287,23 @@ def save_subject_progress(progress: str) -> str:
     progress_jp = PROGRESS_TO_JP.get(progress, progress)
     minutes = _parse_minutes(time_text)
 
-    existing_rt = props.get("科目記録", {}).get("rich_text", [])
-    existing = existing_rt[0]["plain_text"] if existing_rt else ""
+    # 科目記録: 科目名のみ（カンマ区切り）
+    names_rt = props.get("科目記録", {}).get("rich_text", [])
+    existing_names = names_rt[0]["plain_text"] if names_rt else ""
+    new_names = f"{existing_names}、{subject}" if existing_names else subject
+
+    # 記録詳細: 時間・進行度の詳細データ（内部用）
+    detail_rt = props.get("記録詳細", {}).get("rich_text", [])
+    existing_detail = detail_rt[0]["plain_text"] if detail_rt else ""
     new_record = f"{subject}::{time_text}::{progress_jp}"
-    combined = f"{existing}\n{new_record}".strip()
+    new_detail = f"{existing_detail}\n{new_record}".strip()
 
     existing_min = props.get("勉強時間(分)", {}).get("number") or 0
     notion.pages.update(
         page_id=entry["id"],
         properties={
-            "科目記録":    {"rich_text": [{"text": {"content": combined}}]},
+            "科目記録":    {"rich_text": [{"text": {"content": new_names}}]},
+            "記録詳細":    {"rich_text": [{"text": {"content": new_detail}}]},
             "勉強時間(分)": {"number": existing_min + minutes},
             "現在の科目":  {"rich_text": [{"text": {"content": ""}}]},
             "状態":        {"select": {"name": "継続確認"}},
@@ -320,11 +327,11 @@ def finalize_evening_log():
     if not entry:
         return [], 0
     props = entry["properties"]
-    records_text = props.get("科目記録", {}).get("rich_text", [])
-    records_text = records_text[0]["plain_text"] if records_text else ""
+    detail_rt = props.get("記録詳細", {}).get("rich_text", [])
+    detail_text = detail_rt[0]["plain_text"] if detail_rt else ""
     total_minutes = props.get("勉強時間(分)", {}).get("number") or 0
     records = []
-    for line in records_text.strip().split("\n"):
+    for line in detail_text.strip().split("\n"):
         parts = line.split("::")
         if len(parts) == 3:
             records.append({"subject": parts[0], "time": parts[1], "progress": parts[2]})
