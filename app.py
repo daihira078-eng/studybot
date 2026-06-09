@@ -3,7 +3,7 @@ from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import PostbackEvent, MessageEvent, TextMessageContent
-from linebot.v3.messaging import TextMessage
+from linebot.v3.messaging import TextMessage, QuickReply, QuickReplyItem, PostbackAction
 from dotenv import load_dotenv
 
 from morning_check import time_check_message
@@ -21,8 +21,9 @@ from notion_client_helper import (
     finalize_log_no_study,
     update_log_time,
     finalize_log,
+    save_morning_result,
 )
-from task_generator import generate_tasks
+from task_generator import generate_tasks, MAX_SUBJECTS
 from line_sender import send_reply
 
 load_dotenv()
@@ -54,9 +55,40 @@ def handle_postback(event):
         send_reply(reply_token, time_check_message(params["energy"]))
 
     elif keys == {"energy", "time"}:
+        energy, time = params["energy"], params["time"]
         subjects, today_label = get_today_subjects()
-        text = generate_tasks(subjects, today_label, energy=params["energy"], time=params["time"])
-        send_reply(reply_token, TextMessage(text=text))
+        text = generate_tasks(subjects, today_label, energy=energy, time=time)
+        limit = MAX_SUBJECTS.get((energy, time), len(subjects))
+        limited = subjects[:limit]
+        qr_items = []
+        for s in limited:
+            name = s["name"]
+            qr_items.append(QuickReplyItem(action=PostbackAction(
+                label=f"✅ {name[:10]}", data=f"action=complete&subject={name}", display_text=f"✅ {name}"
+            )))
+            qr_items.append(QuickReplyItem(action=PostbackAction(
+                label=f"⏭ {name[:10]}", data=f"action=skip&subject={name}", display_text=f"⏭ {name}"
+            )))
+        task_msg = TextMessage(text=text)
+        if qr_items:
+            check_msg = TextMessage(
+                text="終わった科目があったら報告してね！",
+                quick_reply=QuickReply(items=qr_items),
+            )
+            send_reply(reply_token, [task_msg, check_msg])
+        else:
+            send_reply(reply_token, task_msg)
+
+    # ── 朝の完了・スキップ ────────────────────────────
+    elif keys == {"action", "subject"}:
+        action = params["action"]
+        subject = params["subject"]
+        save_morning_result(subject, action)
+        if action == "complete":
+            msg = f"{subject} 完了！記録したよ💪"
+        else:
+            msg = f"{subject} スキップ。また次回！"
+        send_reply(reply_token, TextMessage(text=msg))
 
     # ── 夜の振り返りフロー ──────────────────────────────
     elif keys == {"recap_energy"}:

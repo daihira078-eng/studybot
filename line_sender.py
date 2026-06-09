@@ -20,6 +20,7 @@ def send_broadcast(message):
 
 
 def send_reply(reply_token: str, message):
+    messages = message if isinstance(message, list) else [message]
     with ApiClient(configuration) as api_client:
         api = MessagingApi(api_client)
-        api.reply_message(ReplyMessageRequest(reply_token=reply_token, messages=[message]))
+        api.reply_message(ReplyMessageRequest(reply_token=reply_token, messages=messages))

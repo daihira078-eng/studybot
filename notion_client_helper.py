@@ -177,6 +177,18 @@ def update_log_time(time_text: str) -> bool:
     return True
 
 
+def save_morning_result(subject: str, action: str):
+    prefix = "✅" if action == "complete" else "⏭"
+    notion.pages.create(
+        parent={"database_id": LOG_DATABASE_ID},
+        properties={
+            "日付":    {"title": [{"text": {"content": str(date.today())}}]},
+            "科目記録": {"rich_text": [{"text": {"content": f"{prefix} {subject}"}}]},
+            "状態":    {"select": {"name": "完了"}},
+        },
+    )
+
+
 def finalize_log(progress: str):
     entry = _get_log_entry("進行度待ち")
     if not entry:
