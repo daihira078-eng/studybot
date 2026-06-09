@@ -1,17 +1,26 @@
-ENERGY_LABELS = {"high": "良好", "mid": "普通", "low": "疲れ気味"}
-TIME_LABELS = {"short": "1時間未満", "mid": "1〜2時間", "long": "2時間以上"}
+from morning_check import TIME_LABELS
 
 MAX_SUBJECTS = {
-    ("high", "long"): 99,
-    ("high", "mid"): 3,
+    ("low",  "short"): 1,
+    ("low",  "mid"):   1,
+    ("low",  "long"):  2,
+    ("mid",  "short"): 1,
+    ("mid",  "mid"):   2,
+    ("mid",  "long"):  3,
     ("high", "short"): 2,
-    ("mid", "long"): 3,
-    ("mid", "mid"): 2,
-    ("mid", "short"): 1,
-    ("low", "long"): 2,
-    ("low", "mid"): 1,
-    ("low", "short"): 1,
+    ("high", "mid"):   3,
+    ("high", "long"):  99,
 }
+
+ENERGY_LABELS = {"high": "良好", "mid": "普通", "low": "疲れ気味"}
+
+
+def _tone(energy: str, time: str) -> str:
+    if energy == "low":
+        return "無理せず少しだけやろう。少しでもOK！"
+    if energy == "high" and time == "long":
+        return "今日は頑張り時！全力でいこう！"
+    return "今日も頑張れ！"
 
 
 def generate_tasks(subjects: list, today_label: str, energy: str = "mid", time: str = "mid") -> str:
@@ -19,7 +28,7 @@ def generate_tasks(subjects: list, today_label: str, energy: str = "mid", time: 
     subjects = subjects[:limit]
 
     energy_label = ENERGY_LABELS.get(energy, "普通")
-    time_label = TIME_LABELS.get(time, "1〜2時間")
+    time_label = TIME_LABELS.get((energy, time), "")
 
     if not subjects:
         return (
@@ -37,5 +46,5 @@ def generate_tasks(subjects: list, today_label: str, energy: str = "mid", time: 
             lines.append(f"  メモ: {s['memo']}")
         lines.append("")
 
-    lines.append("今日も頑張れ！")
+    lines.append(_tone(energy, time))
     return "\n".join(lines)
