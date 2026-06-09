@@ -2,26 +2,45 @@ name: Daily Study Check
 
 on:
   schedule:
-    - cron: "0 22 * * *"  # 毎日朝7時JST（UTC+9 = UTC 22:00）
-  workflow_dispatch:       # 手動実行も可能
+    - cron: "0 22 * * *"  # 毎日朝7時JST
+    - cron: "0 14 * * *"  # 毎日23時JST
+  workflow_dispatch:
 
 jobs:
   send-morning-check:
+    if: github.event.schedule == '0 22 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Install dependencies
         run: pip install -r requirements.txt
-
       - name: Send morning check
         env:
           LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          NOTION_LOG_DATABASE_ID: ${{ secrets.NOTION_LOG_DATABASE_ID }}
         run: python daily_push.py
+
+  send-evening-recap:
+    if: github.event.schedule == '0 14 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Send evening recap
+        env:
+          LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          NOTION_LOG_DATABASE_ID: ${{ secrets.NOTION_LOG_DATABASE_ID }}
+        run: python evening_push.py
