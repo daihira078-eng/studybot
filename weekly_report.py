@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import date, timedelta
 from collections import defaultdict
 from notion_client import Client
@@ -10,6 +11,33 @@ load_dotenv()
 
 notion = Client(auth=os.environ["NOTION_TOKEN"])
 LOG_DATABASE_ID = os.environ["NOTION_LOG_DATABASE_ID"]
+
+
+def _parse_minutes(text: str) -> int:
+    total = 0.0
+    h = re.search(r'(\d+(?:\.\d+)?)\s*時間', text)
+    m = re.search(r'(\d+)\s*分', text)
+    half = re.search(r'半', text)
+    if h:
+        total += float(h.group(1)) * 60
+    if m:
+        total += int(m.group(1))
+    elif half:
+        total += 30
+    if not h and not m and not half:
+        h2 = re.search(r'(\d+(?:\.\d+)?)\s*h', text)
+        if h2:
+            total += float(h2.group(1)) * 60
+    return int(total)
+
+
+def _format_minutes(total: int) -> str:
+    if total == 0:
+        return "記録なし"
+    h, m = divmod(total, 60)
+    if h == 0:
+        return f"{m}分"
+    return f"{h}時間{m}分" if m else f"{h}時間"
 
 
 def _build_report() -> str:
@@ -25,6 +53,7 @@ def _build_report() -> str:
     subject_count = defaultdict(int)
     complete_count = 0
     skip_count = 0
+    total_minutes = 0
 
     for page in results:
         props = page["properties"]
@@ -48,12 +77,18 @@ def _build_report() -> str:
                 if s:
                     subject_count[s] += 1
 
+        time_rt = props.get("勉強時間", {}).get("rich_text", [])
+        time_text = time_rt[0]["plain_text"] if time_rt else ""
+        if time_text:
+            total_minutes += _parse_minutes(time_text)
+
     days_studied = len(study_days)
     period = f"{week_start.month}/{week_start.day}〜{today.month}/{today.day}"
 
     lines = [
         f"今週の勉強まとめ（{period}）",
         f"勉強した日: {days_studied}日 / 7日",
+        f"総勉強時間: {_format_minutes(total_minutes)}",
         "────────────",
     ]
 
