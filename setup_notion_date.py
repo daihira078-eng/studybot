@@ -8,6 +8,6 @@ LOG_DATABASE_ID = os.environ["NOTION_LOG_DATABASE_ID"]
 
 notion.databases.update(
     database_id=LOG_DATABASE_ID,
-    properties={"記録日": {"date": {}}},
+    properties={"勉強時間(分)": {"number": {"format": "number"}}},
 )
-print("記録日プロパティを追加しました")
+print("勉強時間(分)プロパティを追加しました")

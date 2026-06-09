@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, date
 from notion_client import Client
 from dotenv import load_dotenv
@@ -116,6 +117,24 @@ def get_today_subjects():
 
 # ── StudyLog ─────────────────────────────────────────
 
+def _parse_minutes(text: str) -> int:
+    total = 0.0
+    h = re.search(r'(\d+(?:\.\d+)?)\s*時間', text)
+    m = re.search(r'(\d+)\s*分', text)
+    half = re.search(r'半', text)
+    if h:
+        total += float(h.group(1)) * 60
+    if m:
+        total += int(m.group(1))
+    elif half:
+        total += 30
+    if not h and not m and not half:
+        h2 = re.search(r'(\d+(?:\.\d+)?)\s*h', text)
+        if h2:
+            total += float(h2.group(1)) * 60
+    return int(total)
+
+
 def _get_log_entry(status: str):
     results = notion.databases.query(
         database_id=LOG_DATABASE_ID,
@@ -186,13 +205,14 @@ def update_log_time(time_text: str) -> bool:
     entry = _get_log_entry("時間待ち")
     if not entry:
         return False
-    notion.pages.update(
-        page_id=entry["id"],
-        properties={
-            "勉強時間": {"rich_text": [{"text": {"content": time_text}}]},
-            "状態":     {"select": {"name": "進行度待ち"}},
-        },
-    )
+    minutes = _parse_minutes(time_text)
+    props = {
+        "勉強時間": {"rich_text": [{"text": {"content": time_text}}]},
+        "状態":     {"select": {"name": "進行度待ち"}},
+    }
+    if minutes > 0:
+        props["勉強時間(分)"] = {"number": minutes}
+    notion.pages.update(page_id=entry["id"], properties=props)
     return True
 
 
