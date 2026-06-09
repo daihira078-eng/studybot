@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from dotenv import load_dotenv
 from morning_check import TIME_LABELS
@@ -80,6 +81,36 @@ def _fallback(subjects: list) -> str:
             lines.append(f"  メモ: {s['memo']}")
         lines.append("")
     return "\n".join(lines)
+
+
+def _parse_tasks(text: str) -> list:
+    result = []
+    for block in re.split(r'\n?■\s*', text):
+        block = block.strip()
+        if not block:
+            continue
+        lines = block.split('\n')
+        name = lines[0].strip()
+        tasks = [l.strip().lstrip('→').strip() for l in lines[1:] if '→' in l]
+        if name:
+            result.append({"name": name, "tasks": tasks})
+    return result
+
+
+def generate_tasks_structured(subjects: list, today_label: str, energy: str = "mid", time: str = "mid"):
+    limit = MAX_SUBJECTS.get((energy, time), len(subjects))
+    subjects = subjects[:limit]
+    energy_label = ENERGY_LABELS.get(energy, "普通")
+    time_label = TIME_LABELS.get((energy, time), "")
+    header = f"=== 今日の勉強課題 ===\n{today_label}曜日（体調:{energy_label}・{time_label}）"
+    tone = _tone(energy, time)
+    if not subjects:
+        return header + "\n\n今日の科目が登録されていません。", [], tone
+    body_text = _ask_ai(subjects, today_label, energy, time)
+    parsed = _parse_tasks(body_text)
+    if not parsed:
+        parsed = [{"name": s["name"], "tasks": []} for s in subjects]
+    return header, parsed, tone
 
 
 def generate_tasks(subjects: list, today_label: str, energy: str = "mid", time: str = "mid") -> str:

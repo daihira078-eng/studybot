@@ -24,7 +24,8 @@ from notion_client_helper import (
     finalize_log,
     save_morning_result,
 )
-from task_generator import generate_tasks, MAX_SUBJECTS
+from task_generator import generate_tasks, generate_tasks_structured, MAX_SUBJECTS
+from flex_builder import build_task_flex
 from line_sender import send_reply
 
 load_dotenv()
@@ -58,31 +59,22 @@ def handle_postback(event):
     elif keys == {"energy", "time"}:
         energy, time = params["energy"], params["time"]
         subjects, today_label = get_today_subjects()
-        text = generate_tasks(subjects, today_label, energy=energy, time=time)
-        limit = MAX_SUBJECTS.get((energy, time), len(subjects))
-        limited = subjects[:limit]
-        qr_items = []
-        for s in limited:
-            name = s["name"]
-            qr_items.append(QuickReplyItem(action=PostbackAction(
-                label=f"✅ {name[:10]}", data=f"action=complete&subject={name}", display_text=f"✅ {name}"
-            )))
-            qr_items.append(QuickReplyItem(action=PostbackAction(
-                label=f"⏭ {name[:10]}", data=f"action=skip&subject={name}", display_text=f"⏭ {name}"
-            )))
+        header, tasks_data, tone = generate_tasks_structured(subjects, today_label, energy=energy, time=time)
+
         skips = get_yesterday_skips()
+        header_text = header
         if skips:
-            skip_line = "昨日スキップ: " + "・".join(skips)
-            text = text + f"\n\n{skip_line} → 今日こそ！"
-        task_msg = TextMessage(text=text)
-        if qr_items:
-            check_msg = TextMessage(
-                text="終わった科目があったら報告してね！",
-                quick_reply=QuickReply(items=qr_items),
-            )
-            send_reply(reply_token, [task_msg, check_msg])
+            header_text += "\n\n昨日スキップ: " + "・".join(skips) + " → 今日こそ！"
+
+        msgs = [TextMessage(text=header_text)]
+        if tasks_data:
+            flex = build_task_flex(tasks_data, tone)
+            if flex:
+                msgs.append(flex)
         else:
-            send_reply(reply_token, task_msg)
+            msgs.append(TextMessage(text=tone))
+
+        send_reply(reply_token, msgs)
 
     # ── 朝の完了・スキップ ────────────────────────────
     elif keys == {"action", "subject"}:
