@@ -38,14 +38,16 @@ def _ask_ai(subjects: list, today_label: str, energy: str, time: str) -> str:
         for s in subjects
     )
 
+    task_count = {"high": "2〜3個", "mid": "1〜2個", "low": "1個"}.get(energy, "1〜2個")
+
     prompt = f"""あなたは大学生の勉強をサポートするコーチです。
 今日（{today_label}曜日）の状況：体調={energy_label}、使える時間={time_label}
 
 勉強する科目：
 {subject_lines}
 
-各科目に対して、今日やるべき具体的な課題を1〜2個ずつ命令口調で提示してください。
-難易度・使える時間に応じて量を調整してください。
+各科目に対して、今日やるべき具体的な課題を{task_count}ずつ命令口調で提示してください。
+難易度・使える時間に応じて内容を調整してください。
 フォーマット：
 ■ 科目名
   → 課題内容
