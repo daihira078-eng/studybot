@@ -34,7 +34,8 @@ def _ask_ai(subjects: list, today_label: str, energy: str, time: str) -> str:
 
     subject_lines = "\n".join(
         f"- {s['name']}（カテゴリ:{s['category']} / 難易度:{s['difficulty']}"
-        + (f" / メモ:{s['memo']}" if s["memo"] else "") + "）"
+        + (f" / メモ:{s['memo']}" if s["memo"] else "")
+        + ("）\n  [詳細]\n" + "\n".join(f"  {l}" for l in s["detail"].splitlines()) if s.get("detail") else "）")
         for s in subjects
     )
 

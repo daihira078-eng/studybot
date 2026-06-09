@@ -50,6 +50,23 @@ def _detect_props(db_props):
     }
 
 
+def _get_page_detail(page_id: str) -> str:
+    try:
+        blocks = notion.blocks.children.list(block_id=page_id)
+        lines = []
+        for block in blocks["results"]:
+            btype = block["type"]
+            if btype in ("paragraph", "heading_1", "heading_2", "heading_3",
+                         "bulleted_list_item", "numbered_list_item"):
+                rt = block[btype].get("rich_text", [])
+                text = "".join(t["plain_text"] for t in rt)
+                if text:
+                    lines.append(text)
+        return "\n".join(lines)[:600]
+    except Exception:
+        return ""
+
+
 def get_today_subjects():
     db = notion.databases.retrieve(database_id=DATABASE_ID)
     keys = _detect_props(db["properties"])
@@ -91,6 +108,7 @@ def get_today_subjects():
             "category": selects[1] if len(selects) > 1 else "",
             "difficulty": selects[0] if len(selects) > 0 else "",
             "memo": memo,
+            "detail": _get_page_detail(page["id"]),
         })
 
     return subjects, today_label
