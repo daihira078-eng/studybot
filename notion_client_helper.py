@@ -137,6 +137,7 @@ def create_draft_log(energy: str):
         parent={"database_id": LOG_DATABASE_ID},
         properties={
             "日付":        {"title": [{"text": {"content": str(date.today())}}]},
+            "記録日":      {"date": {"start": str(date.today())}},
             "頑張り度合い": {"select": {"name": ENERGY_TO_JP.get(energy, energy)}},
             "状態":        {"select": {"name": "記録中"}},
         },
@@ -201,6 +202,7 @@ def save_morning_result(subject: str, action: str):
         parent={"database_id": LOG_DATABASE_ID},
         properties={
             "日付":    {"title": [{"text": {"content": str(date.today())}}]},
+            "記録日":  {"date": {"start": str(date.today())}},
             "科目記録": {"rich_text": [{"text": {"content": f"{prefix} {subject}"}}]},
             "状態":    {"select": {"name": "完了"}},
         },
