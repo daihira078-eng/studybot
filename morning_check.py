@@ -26,9 +26,10 @@ TIME_LABELS = {
 }
 
 
-def morning_check_message():
+def morning_check_message(header: str = ""):
+    text = f"{header}\nおはよう！今日の体調を教えて。" if header else "おはよう！今日の体調を教えて。"
     return TextMessage(
-        text="おはよう！今日の体調を教えて。",
+        text=text,
         quick_reply=QuickReply(items=[
             QuickReplyItem(action=PostbackAction(label="良好",     data="energy=high", display_text="良好")),
             QuickReplyItem(action=PostbackAction(label="普通",     data="energy=mid",  display_text="普通")),

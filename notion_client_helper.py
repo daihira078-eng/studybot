@@ -1,6 +1,6 @@
 import os
 import re
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from notion_client import Client
 from dotenv import load_dotenv
 
@@ -113,6 +113,61 @@ def get_today_subjects():
         })
 
     return subjects, today_label
+
+
+# ── ストリーク・スキップ繰り越し・試験日 ──────────────────
+
+def get_streak() -> int:
+    check = date.today() - timedelta(days=1)
+    streak = 0
+    for _ in range(60):
+        res = notion.databases.query(
+            database_id=LOG_DATABASE_ID,
+            filter={"property": "記録日", "date": {"equals": str(check)}},
+        )["results"]
+        if not res:
+            break
+        streak += 1
+        check -= timedelta(days=1)
+    return streak
+
+
+def get_yesterday_skips() -> list:
+    yesterday = str(date.today() - timedelta(days=1))
+    res = notion.databases.query(
+        database_id=LOG_DATABASE_ID,
+        filter={"property": "記録日", "date": {"equals": yesterday}},
+    )["results"]
+    skips = []
+    for page in res:
+        rt = page["properties"].get("科目記録", {}).get("rich_text", [])
+        text = rt[0]["plain_text"] if rt else ""
+        if text.startswith("⏭"):
+            skips.append(text[2:].strip())
+    return skips
+
+
+def get_upcoming_exams() -> list:
+    today = str(date.today())
+    res = notion.databases.query(
+        database_id=DATABASE_ID,
+        filter={"property": "試験日", "date": {"on_or_after": today}},
+    )["results"]
+    exams = []
+    for page in res:
+        exam_date = page["properties"].get("試験日", {}).get("date")
+        if not exam_date:
+            continue
+        from datetime import datetime as dt
+        exam_dt = dt.strptime(exam_date["start"], "%Y-%m-%d").date()
+        days_left = (exam_dt - date.today()).days
+        title_prop = next(
+            (p for p in page["properties"].values() if p["type"] == "title"), None
+        )
+        name = title_prop["title"][0]["plain_text"] if title_prop and title_prop["title"] else ""
+        if name:
+            exams.append({"name": name, "days_left": days_left})
+    return sorted(exams, key=lambda x: x["days_left"])
 
 
 # ── StudyLog ─────────────────────────────────────────

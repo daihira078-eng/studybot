@@ -4,10 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 notion = Client(auth=os.environ["NOTION_TOKEN"])
+DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
 LOG_DATABASE_ID = os.environ["NOTION_LOG_DATABASE_ID"]
 
 notion.databases.update(
-    database_id=LOG_DATABASE_ID,
-    properties={"勉強時間(分)": {"number": {"format": "number"}}},
+    database_id=DATABASE_ID,
+    properties={"試験日": {"date": {}}},
 )
-print("勉強時間(分)プロパティを追加しました")
+print("試験日プロパティを追加しました")

@@ -15,6 +15,7 @@ from evening_recap import (
 )
 from notion_client_helper import (
     get_today_subjects,
+    get_yesterday_skips,
     create_draft_log,
     add_subject_to_log,
     complete_subject_selection,
@@ -69,6 +70,10 @@ def handle_postback(event):
             qr_items.append(QuickReplyItem(action=PostbackAction(
                 label=f"⏭ {name[:10]}", data=f"action=skip&subject={name}", display_text=f"⏭ {name}"
             )))
+        skips = get_yesterday_skips()
+        if skips:
+            skip_line = "昨日スキップ: " + "・".join(skips)
+            text = text + f"\n\n{skip_line} → 今日こそ！"
         task_msg = TextMessage(text=text)
         if qr_items:
             check_msg = TextMessage(
