@@ -64,7 +64,7 @@ def _ask_ai(subjects: list, today_label: str, energy: str, time: str) -> str:
         return resp.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print(f"Groq error: {e}")
-        return _fallback(subjects)
+        return f"[DEBUG2] {type(e).__name__}: {str(e)[:200]}"
 
 
 def _fallback(subjects: list) -> str:
