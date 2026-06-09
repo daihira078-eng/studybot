@@ -8,7 +8,7 @@ DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
 LOG_DATABASE_ID = os.environ["NOTION_LOG_DATABASE_ID"]
 
 notion.databases.update(
-    database_id=DATABASE_ID,
-    properties={"試験日": {"date": {}}},
+    database_id=LOG_DATABASE_ID,
+    properties={"現在の科目": {"rich_text": {}}},
 )
-print("試験日プロパティを追加しました")
+print("現在の科目プロパティを追加しました")

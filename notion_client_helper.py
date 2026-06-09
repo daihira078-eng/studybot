@@ -198,12 +198,21 @@ def _get_log_entry(status: str):
     return results["results"][0] if results["results"] else None
 
 
-def _get_current_draft():
-    for status in ["記録中", "科目選択中"]:
+def _get_active_log():
+    for status in ["科目待ち", "時間待ち", "進行度待ち", "継続確認"]:
         entry = _get_log_entry(status)
         if entry:
             return entry
     return None
+
+
+def _fmt_minutes(total: int) -> str:
+    if total == 0:
+        return "記録なし"
+    h, m = divmod(total, 60)
+    if h == 0:
+        return f"{m}分"
+    return f"{h}時間{m}分" if m else f"{h}時間"
 
 
 def create_draft_log(energy: str):
@@ -213,41 +222,87 @@ def create_draft_log(energy: str):
             "日付":        {"title": [{"text": {"content": str(date.today())}}]},
             "記録日":      {"date": {"start": str(date.today())}},
             "頑張り度合い": {"select": {"name": ENERGY_TO_JP.get(energy, energy)}},
-            "状態":        {"select": {"name": "記録中"}},
+            "状態":        {"select": {"name": "科目待ち"}},
         },
     )
 
 
-def add_subject_to_log(subject: str) -> list:
-    entry = _get_current_draft()
+def get_recorded_subjects() -> list:
+    entry = _get_active_log()
     if not entry:
-        return [subject]
-    page_id = entry["id"]
-    rt = entry["properties"]["科目記録"]["rich_text"]
-    current = rt[0]["plain_text"] if rt else ""
-    new_text = f"{current}、{subject}" if current else subject
-    notion.pages.update(
-        page_id=page_id,
-        properties={
-            "科目記録": {"rich_text": [{"text": {"content": new_text}}]},
-            "状態":     {"select": {"name": "科目選択中"}},
-        },
-    )
-    return [s for s in new_text.split("、") if s]
+        return []
+    rt = entry["properties"].get("科目記録", {}).get("rich_text", [])
+    text = rt[0]["plain_text"] if rt else ""
+    return [line.split("::")[0] for line in text.strip().split("\n") if "::" in line]
 
 
-def complete_subject_selection():
-    entry = _get_current_draft()
+def start_subject_record(subject: str):
+    entry = _get_log_entry("科目待ち") or _get_log_entry("継続確認")
     if not entry:
         return
     notion.pages.update(
         page_id=entry["id"],
-        properties={"状態": {"select": {"name": "時間待ち"}}},
+        properties={
+            "現在の科目": {"rich_text": [{"text": {"content": subject}}]},
+            "状態":       {"select": {"name": "時間待ち"}},
+        },
     )
 
 
+def update_log_time(time_text: str) -> bool:
+    entry = _get_log_entry("時間待ち")
+    if not entry:
+        return False
+    notion.pages.update(
+        page_id=entry["id"],
+        properties={
+            "勉強時間": {"rich_text": [{"text": {"content": time_text}}]},
+            "状態":     {"select": {"name": "進行度待ち"}},
+        },
+    )
+    return True
+
+
+def get_current_subject() -> str:
+    entry = _get_log_entry("進行度待ち")
+    if not entry:
+        return ""
+    rt = entry["properties"].get("現在の科目", {}).get("rich_text", [])
+    return rt[0]["plain_text"] if rt else ""
+
+
+def save_subject_progress(progress: str) -> str:
+    entry = _get_log_entry("進行度待ち")
+    if not entry:
+        return ""
+    props = entry["properties"]
+    subject = props.get("現在の科目", {}).get("rich_text", [])
+    subject = subject[0]["plain_text"] if subject else ""
+    time_text = props.get("勉強時間", {}).get("rich_text", [])
+    time_text = time_text[0]["plain_text"] if time_text else ""
+    progress_jp = PROGRESS_TO_JP.get(progress, progress)
+    minutes = _parse_minutes(time_text)
+
+    existing_rt = props.get("科目記録", {}).get("rich_text", [])
+    existing = existing_rt[0]["plain_text"] if existing_rt else ""
+    new_record = f"{subject}::{time_text}::{progress_jp}"
+    combined = f"{existing}\n{new_record}".strip()
+
+    existing_min = props.get("勉強時間(分)", {}).get("number") or 0
+    notion.pages.update(
+        page_id=entry["id"],
+        properties={
+            "科目記録":    {"rich_text": [{"text": {"content": combined}}]},
+            "勉強時間(分)": {"number": existing_min + minutes},
+            "現在の科目":  {"rich_text": [{"text": {"content": ""}}]},
+            "状態":        {"select": {"name": "継続確認"}},
+        },
+    )
+    return subject
+
+
 def finalize_log_no_study():
-    entry = _get_current_draft()
+    entry = _get_log_entry("科目待ち")
     if not entry:
         return
     notion.pages.update(
@@ -256,19 +311,24 @@ def finalize_log_no_study():
     )
 
 
-def update_log_time(time_text: str) -> bool:
-    entry = _get_log_entry("時間待ち")
+def finalize_evening_log():
+    entry = _get_log_entry("継続確認")
     if not entry:
-        return False
-    minutes = _parse_minutes(time_text)
-    props = {
-        "勉強時間": {"rich_text": [{"text": {"content": time_text}}]},
-        "状態":     {"select": {"name": "進行度待ち"}},
-    }
-    if minutes > 0:
-        props["勉強時間(分)"] = {"number": minutes}
-    notion.pages.update(page_id=entry["id"], properties=props)
-    return True
+        return [], 0
+    props = entry["properties"]
+    records_text = props.get("科目記録", {}).get("rich_text", [])
+    records_text = records_text[0]["plain_text"] if records_text else ""
+    total_minutes = props.get("勉強時間(分)", {}).get("number") or 0
+    records = []
+    for line in records_text.strip().split("\n"):
+        parts = line.split("::")
+        if len(parts) == 3:
+            records.append({"subject": parts[0], "time": parts[1], "progress": parts[2]})
+    notion.pages.update(
+        page_id=entry["id"],
+        properties={"状態": {"select": {"name": "完了"}}},
+    )
+    return records, total_minutes
 
 
 def save_morning_result(subject: str, action: str):
@@ -282,21 +342,3 @@ def save_morning_result(subject: str, action: str):
             "状態":    {"select": {"name": "完了"}},
         },
     )
-
-
-def finalize_log(progress: str):
-    entry = _get_log_entry("進行度待ち")
-    if not entry:
-        return None, None, None
-    props = entry["properties"]
-    energy_jp   = props["頑張り度合い"]["select"]["name"] if props["頑張り度合い"]["select"] else ""
-    time_text   = props["勉強時間"]["rich_text"][0]["plain_text"] if props["勉強時間"]["rich_text"] else ""
-    subjects    = props["科目記録"]["rich_text"][0]["plain_text"] if props["科目記録"]["rich_text"] else ""
-    notion.pages.update(
-        page_id=entry["id"],
-        properties={
-            "進行度": {"select": {"name": PROGRESS_TO_JP.get(progress, progress)}},
-            "状態":   {"select": {"name": "完了"}},
-        },
-    )
-    return energy_jp, time_text, subjects

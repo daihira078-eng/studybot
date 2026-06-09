@@ -17,43 +17,39 @@ def evening_check_message():
     )
 
 
-def subject_select_message(all_subjects: list, selected: list) -> TextMessage:
-    remaining = [s for s in all_subjects if s["name"] not in selected]
+def subject_select_message(all_subjects: list, already_recorded: list) -> TextMessage:
+    available = [s for s in all_subjects if s["name"] not in already_recorded]
     items = []
 
-    for s in remaining[:10]:  # LINE Quick Reply上限対策
+    for s in available[:12]:
         items.append(QuickReplyItem(action=PostbackAction(
             label=s["name"][:20],
             data=f"recap_subject={s['name']}",
             display_text=s["name"],
         )))
 
-    if selected:
-        items.append(QuickReplyItem(action=PostbackAction(
-            label="以上",
-            data="recap_subjects_done=1",
-            display_text="以上",
-        )))
-        selected_str = "、".join(selected)
-        text = f"他にも勉強した？\n（選択中: {selected_str}）"
-    else:
+    if not already_recorded:
         items.append(QuickReplyItem(action=PostbackAction(
             label="今日は無理だった",
-            data="recap_subject=no_study&recap_subjects_done=1",
+            data="recap_no_study=true",
             display_text="今日は無理だった",
         )))
         text = "今日何を勉強した？"
+    else:
+        text = "他に何を勉強した？"
 
     return TextMessage(text=text, quick_reply=QuickReply(items=items))
 
 
-def ask_study_time_message():
-    return TextMessage(text="今日は何分勉強できた？\n（例: 45分、1時間30分）")
+def ask_study_time_message(subject: str = "") -> TextMessage:
+    text = f"{subject}を何分勉強した？\n（例: 45分、1時間30分）" if subject else "何分勉強した？\n（例: 45分、1時間30分）"
+    return TextMessage(text=text)
 
 
-def recap_progress_message():
+def recap_progress_message(subject: str = "") -> TextMessage:
+    text = f"{subject}の進み具合は？" if subject else "進み具合は？"
     return TextMessage(
-        text="課題の進み具合は？",
+        text=text,
         quick_reply=QuickReply(items=[
             QuickReplyItem(action=PostbackAction(label="始めた",     data="recap_progress=start",  display_text="始めた")),
             QuickReplyItem(action=PostbackAction(label="少し進んだ", data="recap_progress=little", display_text="少し進んだ")),
@@ -64,6 +60,14 @@ def recap_progress_message():
     )
 
 
-ENERGY_LABELS   = {"great": "頑張れた！", "ok": "まあまあ", "bad": "イマイチ"}
-PROGRESS_LABELS = {"start": "始めた", "little": "少し進んだ", "half": "半分くらい", "almost": "ほぼ完了", "done": "完了！"}
-ENCOURAGEMENTS  = {"great": "素晴らしい！その調子で明日も！", "ok": "十分だよ。積み上げが大事！", "bad": "今日は休んで明日また頑張ろう。"}
+def ask_continue_message() -> TextMessage:
+    return TextMessage(
+        text="他にも勉強した？",
+        quick_reply=QuickReply(items=[
+            QuickReplyItem(action=PostbackAction(label="はい", data="recap_continue=yes", display_text="はい")),
+            QuickReplyItem(action=PostbackAction(label="以上", data="recap_done=true",    display_text="以上")),
+        ]),
+    )
+
+
+ENCOURAGEMENTS = {"great": "素晴らしい！その調子で明日も！", "ok": "十分だよ。積み上げが大事！", "bad": "今日は休んで明日また頑張ろう。"}
