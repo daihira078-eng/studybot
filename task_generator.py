@@ -1,11 +1,9 @@
 import os
-from groq import Groq
+import requests
 from dotenv import load_dotenv
 from morning_check import TIME_LABELS
 
 load_dotenv()
-
-_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
 
 ENERGY_LABELS = {"high": "良好", "mid": "普通", "low": "疲れ気味"}
 
@@ -55,15 +53,18 @@ def _ask_ai(subjects: list, today_label: str, energy: str, time: str) -> str:
 絵文字・余計な説明は不要。課題だけを簡潔に。"""
 
     try:
-        response = _client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=512,
+        key = os.environ.get("GROQ_API_KEY", "")
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 512},
+            timeout=30,
         )
-        return response.choices[0].message.content.strip()
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print(f"Groq error: {e}")
-        return f"[DEBUG] {type(e).__name__}: {str(e)[:200]}"
+        return _fallback(subjects)
 
 
 def _fallback(subjects: list) -> str:
