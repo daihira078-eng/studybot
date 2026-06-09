@@ -1,12 +1,11 @@
 import os
-import google.generativeai as genai
+from groq import Groq
 from dotenv import load_dotenv
 from morning_check import TIME_LABELS
 
 load_dotenv()
 
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
-_model = genai.GenerativeModel("gemini-1.5-flash")
+_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
 
 ENERGY_LABELS = {"high": "良好", "mid": "普通", "low": "疲れ気味"}
 
@@ -31,7 +30,7 @@ def _tone(energy: str, time: str) -> str:
     return "今日も頑張れ！"
 
 
-def _ask_gemini(subjects: list, today_label: str, energy: str, time: str) -> str:
+def _ask_ai(subjects: list, today_label: str, energy: str, time: str) -> str:
     energy_label = ENERGY_LABELS.get(energy, "普通")
     time_label = TIME_LABELS.get((energy, time), "")
 
@@ -56,23 +55,25 @@ def _ask_gemini(subjects: list, today_label: str, energy: str, time: str) -> str
 絵文字・余計な説明は不要。課題だけを簡潔に。"""
 
     try:
-        response = _model.generate_content(prompt)
-        return response.text.strip()
-    except Exception:
-        return _fallback(subjects, today_label, energy, time)
+        response = _client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=512,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Groq error: {e}")
+        return _fallback(subjects)
 
 
-def _fallback(subjects: list, today_label: str, energy: str, time: str) -> str:
-    energy_label = ENERGY_LABELS.get(energy, "普通")
-    time_label = TIME_LABELS.get((energy, time), "")
-    lines = [f"=== 今日の勉強課題 ===", f"{today_label}曜日（体調:{energy_label}・{time_label}）\n"]
+def _fallback(subjects: list) -> str:
+    lines = []
     for s in subjects:
         lines.append(f"■ {s['name']}")
         lines.append(f"  カテゴリ【{s['category']}】難易度【{s['difficulty']}】")
         if s["memo"]:
             lines.append(f"  メモ: {s['memo']}")
         lines.append("")
-    lines.append(_tone(energy, time))
     return "\n".join(lines)
 
 
@@ -92,7 +93,7 @@ def generate_tasks(subjects: list, today_label: str, energy: str = "mid", time: 
         )
 
     header = f"=== 今日の勉強課題 ===\n{today_label}曜日（体調:{energy_label}・{time_label}）\n\n"
-    body = _ask_gemini(subjects, today_label, energy, time)
+    body = _ask_ai(subjects, today_label, energy, time)
     footer = f"\n\n{_tone(energy, time)}"
 
     return header + body + footer

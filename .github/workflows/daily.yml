@@ -24,6 +24,7 @@ jobs:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
           NOTION_LOG_DATABASE_ID: ${{ secrets.NOTION_LOG_DATABASE_ID }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python daily_push.py
 
   send-evening-recap:
