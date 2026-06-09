@@ -4,6 +4,7 @@ on:
   schedule:
     - cron: "0 22 * * *"  # 毎日朝7時JST
     - cron: "0 14 * * *"  # 毎日23時JST
+    - cron: "5 22 * * 1"  # 毎週月曜朝7時JST（週報）
   workflow_dispatch:
 
 jobs:
@@ -26,6 +27,23 @@ jobs:
           NOTION_LOG_DATABASE_ID: ${{ secrets.NOTION_LOG_DATABASE_ID }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python daily_push.py
+
+  send-weekly-report:
+    if: github.event.schedule == '5 22 * * 1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Send weekly report
+        env:
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_LOG_DATABASE_ID: ${{ secrets.NOTION_LOG_DATABASE_ID }}
+        run: python weekly_report.py
 
   send-evening-recap:
     if: github.event.schedule == '0 14 * * *'
