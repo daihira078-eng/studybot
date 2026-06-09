@@ -17,6 +17,36 @@ def evening_check_message():
     )
 
 
+def subject_select_message(all_subjects: list, selected: list) -> TextMessage:
+    remaining = [s for s in all_subjects if s["name"] not in selected]
+    items = []
+
+    for s in remaining[:10]:  # LINE Quick Reply上限対策
+        items.append(QuickReplyItem(action=PostbackAction(
+            label=s["name"][:20],
+            data=f"recap_subject={s['name']}",
+            display_text=s["name"],
+        )))
+
+    if selected:
+        items.append(QuickReplyItem(action=PostbackAction(
+            label="以上",
+            data="recap_subjects_done=1",
+            display_text="以上",
+        )))
+        selected_str = "、".join(selected)
+        text = f"他にも勉強した？\n（選択中: {selected_str}）"
+    else:
+        items.append(QuickReplyItem(action=PostbackAction(
+            label="今日は無理だった",
+            data="recap_subject=no_study&recap_subjects_done=1",
+            display_text="今日は無理だった",
+        )))
+        text = "今日何を勉強した？"
+
+    return TextMessage(text=text, quick_reply=QuickReply(items=items))
+
+
 def ask_study_time_message():
     return TextMessage(text="今日は何分勉強できた？\n（例: 45分、1時間30分）")
 
@@ -37,10 +67,3 @@ def recap_progress_message():
 ENERGY_LABELS   = {"great": "頑張れた！", "ok": "まあまあ", "bad": "イマイチ"}
 PROGRESS_LABELS = {"start": "始めた", "little": "少し進んだ", "half": "半分くらい", "almost": "ほぼ完了", "done": "完了！"}
 ENCOURAGEMENTS  = {"great": "素晴らしい！その調子で明日も！", "ok": "十分だよ。積み上げが大事！", "bad": "今日は休んで明日また頑張ろう。"}
-
-
-def recap_summary(energy: str, time_text: str, progress: str) -> str:
-    e   = ENERGY_LABELS.get(energy, energy)
-    p   = PROGRESS_LABELS.get(progress, progress)
-    enc = ENCOURAGEMENTS.get(energy, "お疲れ様！")
-    return f"今日の記録を保存したよ！\n頑張り:{e} / 時間:{time_text} / 進行度:{p}\n\n{enc}"

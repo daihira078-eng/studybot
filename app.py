@@ -8,13 +8,17 @@ from dotenv import load_dotenv
 
 from morning_check import time_check_message
 from evening_recap import (
+    subject_select_message,
     ask_study_time_message,
     recap_progress_message,
-    recap_summary,
+    ENCOURAGEMENTS,
 )
 from notion_client_helper import (
     get_today_subjects,
     create_draft_log,
+    add_subject_to_log,
+    complete_subject_selection,
+    finalize_log_no_study,
     update_log_time,
     finalize_log,
 )
@@ -42,28 +46,46 @@ def callback():
 def handle_postback(event):
     data = event.postback.data
     reply_token = event.reply_token
-    params = dict(p.split("=") for p in data.split("&"))
+    params = dict(p.split("=", 1) for p in data.split("&"))
+    keys = set(params.keys())
 
-    # --- 朝のチェックフロー ---
-    if "energy" in params and "time" not in params:
+    # ── 朝のチェックフロー ──────────────────────────────
+    if keys == {"energy"}:
         send_reply(reply_token, time_check_message(params["energy"]))
 
-    elif "energy" in params and "time" in params:
+    elif keys == {"energy", "time"}:
         subjects, today_label = get_today_subjects()
         text = generate_tasks(subjects, today_label, energy=params["energy"], time=params["time"])
         send_reply(reply_token, TextMessage(text=text))
 
-    # --- 夜の振り返りフロー ---
-    elif "recap_energy" in params:
+    # ── 夜の振り返りフロー ──────────────────────────────
+    elif keys == {"recap_energy"}:
         create_draft_log(params["recap_energy"])
-        send_reply(reply_token, ask_study_time_message())
+        subjects, _ = get_today_subjects()
+        send_reply(reply_token, subject_select_message(subjects, []))
 
-    elif "recap_progress" in params:
-        energy_jp, time_text = finalize_log(params["recap_progress"])
-        progress_jp = {"start": "始めた", "little": "少し進んだ", "half": "半分くらい", "almost": "ほぼ完了", "done": "完了！"}.get(params["recap_progress"], "")
-        enc = {"great": "素晴らしい！その調子で明日も！", "ok": "十分だよ。積み上げが大事！", "bad": "今日は休んで明日また頑張ろう。"}
-        energy_key = next((k for k, v in {"great": "頑張れた！", "ok": "まあまあ", "bad": "イマイチ"}.items() if v == energy_jp), "ok")
-        text = f"今日の記録を保存したよ！\n頑張り:{energy_jp} / 時間:{time_text} / 進行度:{progress_jp}\n\n{enc.get(energy_key, 'お疲れ様！')}"
+    elif "recap_subject" in keys and "recap_subjects_done" not in keys:
+        selected = add_subject_to_log(params["recap_subject"])
+        subjects, _ = get_today_subjects()
+        send_reply(reply_token, subject_select_message(subjects, selected))
+
+    elif "recap_subjects_done" in keys:
+        if params.get("recap_subject") == "no_study":
+            finalize_log_no_study()
+            send_reply(reply_token, TextMessage(text="今日はゆっくり休んで！\n明日また頑張ろう。"))
+        else:
+            complete_subject_selection()
+            send_reply(reply_token, ask_study_time_message())
+
+    elif keys == {"recap_progress"}:
+        energy_jp, time_text, subjects = finalize_log(params["recap_progress"])
+        if energy_jp:
+            enc_key = next((k for k, v in {"great": "頑張れた！", "ok": "まあまあ", "bad": "イマイチ"}.items() if v == energy_jp), "ok")
+            enc = ENCOURAGEMENTS.get(enc_key, "お疲れ様！")
+            progress_jp = {"start": "始めた", "little": "少し進んだ", "half": "半分くらい", "almost": "ほぼ完了", "done": "完了！"}.get(params["recap_progress"], "")
+            text = f"今日の記録を保存したよ！\n科目:{subjects}\n時間:{time_text}\n進行度:{progress_jp}\n\n{enc}"
+        else:
+            text = "記録完了！お疲れ様でした。"
         send_reply(reply_token, TextMessage(text=text))
 
 
@@ -71,8 +93,6 @@ def handle_postback(event):
 def handle_message(event):
     reply_token = event.reply_token
     text = event.message.text.strip()
-
-    # 勉強時間のテキストを受け取る
     updated = update_log_time(text)
     if updated:
         send_reply(reply_token, recap_progress_message())
