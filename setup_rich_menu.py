@@ -4,6 +4,7 @@
 """
 import os
 import json
+import math
 import requests
 from dotenv import load_dotenv
 
@@ -20,41 +21,24 @@ HEADERS = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
 W, H = 2500, 1686
 COLS, ROWS = 3, 2
-CW, CH = W // COLS, H // ROWS  # 833, 843
+CW, CH = W // COLS, H // ROWS
 
 CELLS = [
-    {"label": "朝の課題",    "sub": "今日の課題を確認",   "base": (74,  144, 217), "data": "menu=morning",   "display": "朝の課題を見る"},
-    {"label": "夜の振り返り","sub": "今日の勉強を記録",    "base": (63,  81,  181), "data": "menu=evening",   "display": "夜の振り返り"},
-    {"label": "今日の記録",  "sub": "記録した内容を確認",  "base": (0,   137, 123), "data": "menu=today_log", "display": "今日の記録を確認"},
-    {"label": "今週の記録",  "sub": "週間レポートを表示",  "base": (67,  160, 71),  "data": "menu=weekly",    "display": "今週の記録"},
-    {"label": "ストリーク",  "sub": "連続勉強日数を確認",  "base": (251, 140, 0),   "data": "menu=streak",    "display": "ストリーク確認"},
-    {"label": "ログリセット","sub": "途中データを初期化",   "base": (117, 117, 117), "data": "menu=reset",     "display": "ログリセット"},
+    {"label": "朝の課題",    "accent": (255, 165, 0),   "data": "menu=morning",   "display": "朝の課題を見る"},
+    {"label": "夜の振り返り","accent": (100, 120, 220),  "data": "menu=evening",   "display": "夜の振り返り"},
+    {"label": "今日の記録",  "accent": (0,  180, 160),   "data": "menu=today_log", "display": "今日の記録を確認"},
+    {"label": "今週の記録",  "accent": (80, 190, 100),   "data": "menu=weekly",    "display": "今週の記録"},
+    {"label": "ストリーク",  "accent": (240, 80,  80),   "data": "menu=streak",    "display": "ストリーク確認"},
+    {"label": "リセット",    "accent": (180, 180, 180),  "data": "menu=reset",     "display": "ログリセット"},
 ]
 
 POSITIONS = [
     (col * CW, row * CH, (col + 1) * CW, (row + 1) * CH)
     for row in range(ROWS) for col in range(COLS)
 ]
-POSITIONS[-1] = (2 * CW, CH, W, H)  # 最後のセルを端まで広げる
+POSITIONS[-1] = (2 * CW, CH, W, H)
 
-
-def lighten(color, f=0.4):
-    return tuple(min(255, int(c + (255 - c) * f)) for c in color)
-
-
-def darken(color, f=0.25):
-    return tuple(max(0, int(c * (1 - f))) for c in color)
-
-
-def draw_gradient(draw, x1, y1, x2, y2, color_top, color_bottom, steps=60):
-    for i in range(steps):
-        t = i / steps
-        r = int(color_top[0] + (color_bottom[0] - color_top[0]) * t)
-        g = int(color_top[1] + (color_bottom[1] - color_top[1]) * t)
-        b = int(color_top[2] + (color_bottom[2] - color_top[2]) * t)
-        y_from = y1 + (y2 - y1) * i // steps
-        y_to   = y1 + (y2 - y1) * (i + 1) // steps
-        draw.rectangle([x1, y_from, x2, y_to], fill=(r, g, b))
+ICON_FUNCTIONS = []
 
 
 def load_font(size):
@@ -62,7 +46,6 @@ def load_font(size):
         "C:/Windows/Fonts/YuGothB.ttc",
         "C:/Windows/Fonts/meiryob.ttc",
         "C:/Windows/Fonts/msgothic.ttc",
-        "C:/Windows/Fonts/arial.ttf",
     ]:
         try:
             return ImageFont.truetype(path, size)
@@ -71,44 +54,108 @@ def load_font(size):
     return ImageFont.load_default()
 
 
+def draw_sun(draw, cx, cy, r, color, lw=12):
+    draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=color, width=lw)
+    ray = int(r * 0.55)
+    for i in range(8):
+        angle = math.radians(i * 45)
+        x1 = cx + int((r + 18) * math.cos(angle))
+        y1 = cy + int((r + 18) * math.sin(angle))
+        x2 = cx + int((r + 18 + ray) * math.cos(angle))
+        y2 = cy + int((r + 18 + ray) * math.sin(angle))
+        draw.line([x1, y1, x2, y2], fill=color, width=lw)
+
+
+def draw_moon(draw, cx, cy, r, color, lw=12):
+    draw.arc([cx-r, cy-r, cx+r, cy+r], start=30, end=330, fill=color, width=lw)
+    draw.arc([cx-int(r*0.5), cy-r, cx+int(r*1.3), cy+r], start=210, end=150, fill=(255,255,255), width=lw+4)
+    draw.arc([cx-int(r*0.5), cy-r, cx+int(r*1.3), cy+r], start=210, end=150, fill=color, width=lw)
+
+
+def draw_clipboard(draw, cx, cy, r, color, lw=12):
+    x1, y1, x2, y2 = cx - r, cy - int(r * 0.9), cx + r, cy + int(r * 1.1)
+    draw.rectangle([x1, y1, x2, y2], outline=color, width=lw)
+    bw = int(r * 0.6)
+    bh = int(r * 0.25)
+    draw.rectangle([cx - bw, y1 - bh, cx + bw, y1 + bh], fill=(255,255,255), outline=color, width=lw)
+    for i, offset in enumerate([-0.35, 0, 0.4]):
+        ly = cy + int(r * offset)
+        draw.line([x1 + int(r*0.3), ly, x2 - int(r*0.25), ly], fill=color, width=lw - 2)
+
+
+def draw_barchart(draw, cx, cy, r, color, lw=10):
+    bars = [0.5, 0.85, 0.65]
+    bw = int(r * 0.45)
+    gap = int(r * 0.15)
+    total_w = len(bars) * bw + (len(bars) - 1) * gap
+    start_x = cx - total_w // 2
+    base_y = cy + r
+    draw.line([start_x - 10, base_y, cx + r + 10, base_y], fill=color, width=lw)
+    for i, h_ratio in enumerate(bars):
+        bx = start_x + i * (bw + gap)
+        bh = int(r * 1.6 * h_ratio)
+        draw.rectangle([bx, base_y - bh, bx + bw, base_y], outline=color, width=lw)
+
+
+def draw_flame(draw, cx, cy, r, color, lw=12):
+    pts = [
+        (cx, cy - r),
+        (cx + int(r*0.7), cy - int(r*0.2)),
+        (cx + int(r*0.5), cy + int(r*0.3)),
+        (cx + int(r*0.8), cy + r),
+        (cx, cy + int(r*0.6)),
+        (cx - int(r*0.8), cy + r),
+        (cx - int(r*0.5), cy + int(r*0.3)),
+        (cx - int(r*0.7), cy - int(r*0.2)),
+    ]
+    draw.polygon(pts, outline=color, fill=None)
+    draw.line(pts + [pts[0]], fill=color, width=lw)
+
+
+def draw_reset(draw, cx, cy, r, color, lw=12):
+    draw.arc([cx-r, cy-r, cx+r, cy+r], start=40, end=320, fill=color, width=lw)
+    ax = cx + int(r * math.cos(math.radians(40)))
+    ay = cy - int(r * math.sin(math.radians(-40)))
+    arrow_size = int(r * 0.35)
+    draw.polygon([
+        (ax, ay - arrow_size),
+        (ax + arrow_size, ay + arrow_size),
+        (ax - arrow_size, ay + arrow_size),
+    ], fill=color)
+
+
+DRAW_ICONS = [draw_sun, draw_moon, draw_clipboard, draw_barchart, draw_flame, draw_reset]
+
+
 def create_image(path="rich_menu.png"):
-    img = Image.new("RGB", (W, H), (30, 30, 30))
+    img = Image.new("RGB", (W, H), (255, 255, 255))
     draw = ImageDraw.Draw(img)
 
-    font_main = load_font(95)
-    font_sub  = load_font(52)
+    font_label = load_font(100)
 
-    for cell, (x1, y1, x2, y2) in zip(CELLS, POSITIONS):
-        base  = cell["base"]
-        top   = lighten(base, 0.35)
-        bot   = darken(base, 0.20)
-
-        draw_gradient(draw, x1, y1, x2, y2, top, bot)
-
-        # 左端アクセントライン
-        draw.rectangle([x1, y1, x1 + 8, y2], fill=(255, 255, 255, 80))
-
-        # セパレーター
-        draw.rectangle([x1, y1, x2, y1 + 3], fill=(255, 255, 255))
-        draw.rectangle([x1, y1, x1 + 3, y2], fill=(255, 255, 255))
-
+    for i, (cell, (x1, y1, x2, y2)) in enumerate(zip(CELLS, POSITIONS)):
+        accent = cell["accent"]
         cx = (x1 + x2) // 2
         cy = (y1 + y2) // 2
 
-        # メインラベル（少し上寄せ）
-        bbox = draw.textbbox((0, 0), cell["label"], font=font_main)
-        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        draw.text((cx - tw // 2, cy - th // 2 - 40), cell["label"],
-                  fill=(255, 255, 255), font=font_main)
+        # アクセントバー（上部）
+        draw.rectangle([x1, y1, x2, y1 + 14], fill=accent)
 
-        # サブラベル
-        bbox2 = draw.textbbox((0, 0), cell["sub"], font=font_sub)
-        tw2 = bbox2[2] - bbox2[0]
-        draw.text((cx - tw2 // 2, cy + th // 2 + 10), cell["sub"],
-                  fill=(255, 255, 255, 180), font=font_sub)
+        # アイコン描画（上寄り中央）
+        icon_cx = cx
+        icon_cy = cy - 100
+        DRAW_ICONS[i](draw, icon_cx, icon_cy, 110, accent, lw=13)
+
+        # ラベル
+        bbox = draw.textbbox((0, 0), cell["label"], font=font_label)
+        tw = bbox[2] - bbox[0]
+        draw.text((cx - tw // 2, cy + 60), cell["label"], fill=(50, 50, 50), font=font_label)
+
+        # セル境界線
+        draw.rectangle([x1, y1, x2 - 1, y2 - 1], outline=(220, 220, 220), width=3)
 
     # 外枠
-    draw.rectangle([0, 0, W - 1, H - 1], outline=(255, 255, 255), width=4)
+    draw.rectangle([0, 0, W - 1, H - 1], outline=(200, 200, 200), width=4)
 
     img.save(path)
     print(f"画像生成: {path}")
