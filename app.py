@@ -6,8 +6,9 @@ from linebot.v3.webhooks import PostbackEvent, MessageEvent, TextMessageContent
 from linebot.v3.messaging import TextMessage, QuickReply, QuickReplyItem, PostbackAction
 from dotenv import load_dotenv
 
-from morning_check import time_check_message
+from morning_check import morning_check_message, time_check_message
 from evening_recap import (
+    evening_check_message,
     subject_select_message,
     ask_study_time_message,
     recap_progress_message,
@@ -32,6 +33,8 @@ from notion_client_helper import (
 from task_generator import generate_tasks, generate_tasks_structured, MAX_SUBJECTS
 from flex_builder import build_task_flex
 from line_sender import send_reply
+from weekly_report import build_report
+from notion_client_helper import get_streak
 
 load_dotenv()
 
@@ -57,8 +60,28 @@ def handle_postback(event):
     params = dict(p.split("=", 1) for p in data.split("&"))
     keys = set(params.keys())
 
+    # ── リッチメニュー ──────────────────────────────────
+    if keys == {"menu_morning"}:
+        send_reply(reply_token, morning_check_message())
+
+    elif keys == {"menu_evening"}:
+        send_reply(reply_token, evening_check_message())
+
+    elif keys == {"menu_weekly"}:
+        send_reply(reply_token, TextMessage(text=build_report()))
+
+    elif keys == {"menu_streak"}:
+        streak = get_streak()
+        if streak == 0:
+            msg = "まだ連続記録がないよ。今日から始めよう！"
+        elif streak == 1:
+            msg = "連続1日！今日も続けよう🔥"
+        else:
+            msg = f"🔥 {streak}日連続勉強中！この調子で！"
+        send_reply(reply_token, TextMessage(text=msg))
+
     # ── 朝のチェックフロー ──────────────────────────────
-    if keys == {"energy"}:
+    elif keys == {"energy"}:
         send_reply(reply_token, time_check_message(params["energy"]))
 
     elif keys == {"energy", "time"}:

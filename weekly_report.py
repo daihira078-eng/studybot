@@ -1,6 +1,6 @@
 import os
 import re
-from datetime import date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from collections import defaultdict
 from notion_client import Client
 from dotenv import load_dotenv
@@ -9,6 +9,7 @@ from linebot.v3.messaging import TextMessage
 
 load_dotenv()
 
+JST = timezone(timedelta(hours=9))
 notion = Client(auth=os.environ["NOTION_TOKEN"])
 LOG_DATABASE_ID = os.environ["NOTION_LOG_DATABASE_ID"]
 
@@ -44,8 +45,8 @@ def _format_minutes(total: int) -> str:
     return f"{h}時間{m}分" if m else f"{h}時間"
 
 
-def _build_report() -> str:
-    today = date.today()
+def build_report() -> str:
+    today = datetime.now(JST).date()
     week_start = today - timedelta(days=7)
 
     results = notion.databases.query(
@@ -118,6 +119,6 @@ def _build_report() -> str:
 
 
 if __name__ == "__main__":
-    report = _build_report()
+    report = build_report()
     send_broadcast(TextMessage(text=report))
     print("週報送信完了")
