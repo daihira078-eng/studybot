@@ -25,6 +25,7 @@ from notion_client_helper import (
     get_yesterday_understanding,
     get_today_log,
     ensure_active_log,
+    reset_active_log,
     get_streak,
     get_recorded_subjects,
     get_current_subject,
@@ -88,6 +89,55 @@ def _build_today_log_flex(log: dict) -> FlexMessage:
         body=FlexBox(layout="vertical", spacing="xs", padding_all="lg", contents=body),
     )
     return FlexMessage(alt_text="今日の記録", contents=bubble)
+
+
+def _build_today_summary_flex(log: dict) -> FlexMessage:
+    now = datetime.now(JST)
+    today = f"{now.month}/{now.day}"
+    body = [FlexText(text="今日の記録を保存したよ！", size="sm", color="#4CAF50", weight="bold")]
+
+    if log["morning"]:
+        body.append(FlexSeparator(margin="md"))
+        body.append(FlexText(text="朝の課題", size="xs", color="#888888", weight="bold", margin="md"))
+        for r in log["morning"]:
+            body.append(FlexText(text=r, size="sm", color="#333333", margin="xs"))
+
+    if log["evening"]:
+        body.append(FlexSeparator(margin="md"))
+        body.append(FlexText(text="勉強記録", size="xs", color="#888888", weight="bold", margin="md"))
+        for r in log["evening"]:
+            body.append(FlexText(
+                text=f"{r['subject']}  {r['time']}  {r['understanding']}",
+                size="sm", color="#333333", margin="xs", wrap=True,
+            ))
+        h, m = divmod(log["total_minutes"], 60)
+        total_str = (f"{h}時間{m}分" if h and m else f"{h}時間" if h else f"{m}分") if log["total_minutes"] else "0分"
+        body.append(FlexSeparator(margin="md"))
+        body.append(FlexText(text=f"合計  {total_str}", size="sm", color="#333333", weight="bold", margin="sm"))
+
+    if len(body) == 1:
+        body.append(FlexText(text="今日は勉強なしで記録したよ", size="sm", color="#888888", margin="sm"))
+
+    mins = log["total_minutes"]
+    if mins >= 120:
+        cheer = "今日はたくさん頑張った！お疲れ様！"
+    elif mins >= 30:
+        cheer = "よく頑張った！お疲れ様！"
+    else:
+        cheer = "お疲れ様！また明日！"
+    body.append(FlexText(text=cheer, size="xs", color="#888888", margin="md", wrap=True))
+
+    bubble = FlexBubble(
+        size="kilo",
+        header=FlexBox(
+            layout="vertical",
+            background_color="#3F51B5",
+            padding_all="md",
+            contents=[FlexText(text=f"🌙 {today}のまとめ", weight="bold", size="lg", color="#FFFFFF")],
+        ),
+        body=FlexBox(layout="vertical", spacing="xs", padding_all="lg", contents=body),
+    )
+    return FlexMessage(alt_text="今日のまとめ", contents=bubble)
 
 
 def _build_no_study_flex() -> FlexMessage:
@@ -171,6 +221,10 @@ def handle_postback(event):
             all_subjects = get_all_subjects()
             recorded = get_recorded_subjects()
             send_reply(reply_token, subject_select_message(today_subjects, all_subjects, recorded))
+        elif action == "reset":
+            count = reset_active_log()
+            msg = "途中データをリセットしたよ。やり直せます。" if count else "リセットするデータはなかったよ。"
+            send_reply(reply_token, TextMessage(text=msg))
         elif action == "weekly":
             send_reply(reply_token, TextMessage(text=build_report()))
         elif action == "streak":
@@ -244,14 +298,16 @@ def handle_postback(event):
         recorded = get_recorded_subjects()
         available = [s for s in all_subjects if s["name"] not in recorded]
         if not available:
-            records, total_min = finalize_evening_log()
-            send_reply(reply_token, TextMessage(text=_build_summary(records, total_min)))
+            finalize_evening_log()
+            log = get_today_log()
+            send_reply(reply_token, _build_today_summary_flex(log))
         else:
             send_reply(reply_token, subject_select_message(today_subjects, all_subjects, recorded))
 
     elif keys == {"recap_done"}:
-        records, total_min = finalize_evening_log()
-        send_reply(reply_token, TextMessage(text=_build_summary(records, total_min)))
+        finalize_evening_log()
+        log = get_today_log()
+        send_reply(reply_token, _build_today_summary_flex(log))
 
 
 @handler.add(MessageEvent, message=TextMessageContent)

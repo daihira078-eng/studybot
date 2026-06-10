@@ -29,7 +29,7 @@ CELLS = [
     {"label": "今日の記録",  "accent": (0,  180, 160),   "data": "menu=today_log", "display": "今日の記録を確認"},
     {"label": "今週の記録",  "accent": (80, 190, 100),   "data": "menu=weekly",    "display": "今週の記録"},
     {"label": "ストリーク",  "accent": (240, 80,  80),   "data": "menu=streak",    "display": "ストリーク確認"},
-    {"label": "夜の振り返り","accent": (130, 80,  200),  "data": "menu=evening",   "display": "夜の振り返り"},
+    {"label": "リセット",    "accent": (180, 180, 180),  "data": "menu=reset",     "display": "ログリセット"},
 ]
 
 POSITIONS = [
@@ -144,7 +144,7 @@ def draw_pencil(draw, cx, cy, r, color, lw=12):
     draw.line([pts[0][0], pts[0][1], tip_x, tip_y], fill=color, width=lw)
 
 
-DRAW_ICONS = [draw_sun, draw_pencil, draw_clipboard, draw_barchart, draw_flame, draw_moon]
+DRAW_ICONS = [draw_sun, draw_pencil, draw_clipboard, draw_barchart, draw_flame, draw_reset]
 
 
 def create_image(path="rich_menu.png"):

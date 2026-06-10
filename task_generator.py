@@ -72,12 +72,13 @@ def _ask_ai(subjects: list, today_label: str, energy: str, time: str, understand
 難易度は「{difficulty}」を意識して設定してください。
 メモがある場合はそれを最優先で参考にし、ない場合は科目名から内容を推測して、具体的なトピック・問題タイプ・章を指定した課題にしてください。
 昨日の理解度も考慮して内容を調整してください。
-フォーマット（このフォーマット厳守）：
+出力フォーマット（必ずこの形式で出力すること）：
 ■ 科目名
-  【テーマ】テーマ名
-  → 課題内容
+【テーマ】テーマ名
+→ 課題1
+→ 課題2
 
-絵文字・余計な説明は不要。課題だけを簡潔に。"""
+※【テーマ】の行は必須。絵文字・余計な説明不要。課題のみ簡潔に。"""
 
     try:
         key = os.environ.get("GROQ_API_KEY", "")
@@ -117,10 +118,13 @@ def _parse_tasks(text: str) -> list:
         tasks = []
         for line in lines[1:]:
             line = line.strip()
-            if "【テーマ】" in line:
-                theme = line.replace("【テーマ】", "").strip().lstrip("：: ").strip()
+            m = re.search(r'【[^】]*テーマ[^】]*】\s*[：:]?\s*(.+)', line)
+            if m:
+                theme = m.group(1).strip()
+            elif re.search(r'^テーマ\s*[：:]\s*(.+)', line):
+                theme = re.search(r'^テーマ\s*[：:]\s*(.+)', line).group(1).strip()
             elif '→' in line:
-                tasks.append(line.lstrip('→').strip())
+                tasks.append(re.sub(r'^→\s*', '', line).strip())
         if name:
             result.append({"name": name, "theme": theme, "tasks": tasks})
     return result
