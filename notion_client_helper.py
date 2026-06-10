@@ -1,8 +1,10 @@
 import os
 import re
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from notion_client import Client
 from dotenv import load_dotenv
+
+JST = timezone(timedelta(hours=9))
 
 load_dotenv()
 
@@ -72,7 +74,7 @@ def get_today_subjects():
     db = notion.databases.retrieve(database_id=DATABASE_ID)
     keys = _detect_props(db["properties"])
 
-    weekday_idx = datetime.now().weekday()
+    weekday_idx = datetime.now(JST).weekday()
     today_label = WEEKDAY_JP[weekday_idx]
 
     all_pages = notion.databases.query(database_id=DATABASE_ID)
@@ -118,7 +120,7 @@ def get_today_subjects():
 # ── ストリーク・スキップ繰り越し・試験日 ──────────────────
 
 def get_streak() -> int:
-    check = date.today() - timedelta(days=1)
+    check = datetime.now(JST).date() - timedelta(days=1)
     streak = 0
     for _ in range(60):
         res = notion.databases.query(
@@ -133,7 +135,7 @@ def get_streak() -> int:
 
 
 def get_yesterday_skips() -> list:
-    yesterday = str(date.today() - timedelta(days=1))
+    yesterday = str(datetime.now(JST).date() - timedelta(days=1))
     res = notion.databases.query(
         database_id=LOG_DATABASE_ID,
         filter={"property": "記録日", "date": {"equals": yesterday}},
@@ -148,7 +150,7 @@ def get_yesterday_skips() -> list:
 
 
 def get_upcoming_exams() -> list:
-    today = str(date.today())
+    today = str(datetime.now(JST).date())
     res = notion.databases.query(
         database_id=DATABASE_ID,
         filter={"property": "試験日", "date": {"on_or_after": today}},
@@ -160,7 +162,7 @@ def get_upcoming_exams() -> list:
             continue
         from datetime import datetime as dt
         exam_dt = dt.strptime(exam_date["start"], "%Y-%m-%d").date()
-        days_left = (exam_dt - date.today()).days
+        days_left = (exam_dt - datetime.now(JST).date()).days
         title_prop = next(
             (p for p in page["properties"].values() if p["type"] == "title"), None
         )
@@ -223,8 +225,8 @@ def create_draft_log(energy: str):
     notion.pages.create(
         parent={"database_id": LOG_DATABASE_ID},
         properties={
-            "日付":        {"title": [{"text": {"content": str(date.today())}}]},
-            "記録日":      {"date": {"start": str(date.today())}},
+            "日付":        {"title": [{"text": {"content": str(datetime.now(JST).date())}}]},
+            "記録日":      {"date": {"start": str(datetime.now(JST).date())}},
             "頑張り度合い": {"select": {"name": ENERGY_TO_JP.get(energy, energy)}},
             "状態":        {"select": {"name": "科目待ち"}},
         },
@@ -347,8 +349,8 @@ def save_morning_result(subject: str, action: str):
     notion.pages.create(
         parent={"database_id": LOG_DATABASE_ID},
         properties={
-            "日付":    {"title": [{"text": {"content": str(date.today())}}]},
-            "記録日":  {"date": {"start": str(date.today())}},
+            "日付":    {"title": [{"text": {"content": str(datetime.now(JST).date())}}]},
+            "記録日":  {"date": {"start": str(datetime.now(JST).date())}},
             "科目記録": {"rich_text": [{"text": {"content": f"{prefix} {subject}"}}]},
             "状態":    {"select": {"name": "完了"}},
         },
