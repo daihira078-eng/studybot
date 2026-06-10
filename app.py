@@ -18,6 +18,7 @@ from notion_client_helper import (
     get_today_subjects,
     get_all_subjects,
     get_yesterday_skips,
+    get_yesterday_understanding,
     get_recorded_subjects,
     get_current_subject,
     create_draft_log,
@@ -63,7 +64,8 @@ def handle_postback(event):
     elif keys == {"energy", "time"}:
         energy, time = params["energy"], params["time"]
         subjects, today_label = get_today_subjects()
-        header, tasks_data, tone = generate_tasks_structured(subjects, today_label, energy=energy, time=time)
+        understanding = get_yesterday_understanding()
+        header, tasks_data, tone = generate_tasks_structured(subjects, today_label, energy=energy, time=time, understanding=understanding)
 
         skips = get_yesterday_skips()
         header_text = header

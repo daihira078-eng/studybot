@@ -29,7 +29,7 @@ def _tone(energy: str, time: str) -> str:
     return "今日も頑張れ！"
 
 
-def _ask_ai(subjects: list, today_label: str, energy: str, time: str) -> str:
+def _ask_ai(subjects: list, today_label: str, energy: str, time: str, understanding: dict = None) -> str:
     energy_label = ENERGY_LABELS.get(energy, "普通")
     time_label = TIME_LABELS.get((energy, time), "")
 
@@ -40,17 +40,23 @@ def _ask_ai(subjects: list, today_label: str, energy: str, time: str) -> str:
         for s in subjects
     )
 
+    understanding_lines = ""
+    if understanding:
+        lines = [f"- {name}: {level}" for name, level in understanding.items() if name in {s["name"] for s in subjects}]
+        if lines:
+            understanding_lines = "\n昨日の理解度：\n" + "\n".join(lines) + "\n（「難しかった」は易しめに、「バッチリ！」は少し難しめに調整）"
+
     task_count = {"high": "2〜3個", "mid": "1〜2個", "low": "1個"}.get(energy, "1〜2個")
 
     prompt = f"""あなたは大学生の勉強をサポートするコーチです。
 今日（{today_label}曜日）の状況：体調={energy_label}、使える時間={time_label}
-
+{understanding_lines}
 勉強する科目：
 {subject_lines}
 
 各科目に対して、今日やるべき具体的な課題を{task_count}ずつ命令口調で提示してください。
 メモがある場合はそれを最優先で参考にし、ない場合は科目名から内容を推測して、具体的なトピック・問題タイプ・章を指定した課題にしてください。
-難易度・使える時間に応じて内容を調整してください。
+難易度・使える時間・昨日の理解度に応じて内容を調整してください。
 フォーマット：
 ■ 科目名
   → 課題内容
@@ -97,7 +103,7 @@ def _parse_tasks(text: str) -> list:
     return result
 
 
-def generate_tasks_structured(subjects: list, today_label: str, energy: str = "mid", time: str = "mid"):
+def generate_tasks_structured(subjects: list, today_label: str, energy: str = "mid", time: str = "mid", understanding: dict = None):
     limit = MAX_SUBJECTS.get((energy, time), len(subjects))
     subjects = subjects[:limit]
     energy_label = ENERGY_LABELS.get(energy, "普通")
@@ -106,7 +112,7 @@ def generate_tasks_structured(subjects: list, today_label: str, energy: str = "m
     tone = _tone(energy, time)
     if not subjects:
         return header + "\n\n今日の科目が登録されていません。", [], tone
-    body_text = _ask_ai(subjects, today_label, energy, time)
+    body_text = _ask_ai(subjects, today_label, energy, time, understanding)
     parsed = _parse_tasks(body_text)
     if not parsed:
         parsed = [{"name": s["name"], "tasks": []} for s in subjects]

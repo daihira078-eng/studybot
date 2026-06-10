@@ -146,11 +146,10 @@ def ask_study_time_message(subject: str = "") -> TextMessage:
 
 def recap_progress_message(subject: str = "") -> FlexMessage:
     options = [
-        ("始めた",     "recap_progress=start",  "#9E9E9E"),
-        ("少し進んだ", "recap_progress=little",  "#2196F3"),
-        ("半分くらい", "recap_progress=half",    "#FF9800"),
-        ("ほぼ完了",   "recap_progress=almost",  "#8BC34A"),
-        ("完了！",     "recap_progress=done",    "#4CAF50"),
+        ("バッチリ！",   "recap_progress=perfect",  "#4CAF50"),
+        ("まあまあ",     "recap_progress=ok",        "#8BC34A"),
+        ("難しかった",   "recap_progress=hard",      "#FF9800"),
+        ("手つかず",     "recap_progress=untouched", "#9E9E9E"),
     ]
     body_contents = []
     for label, data, color in options:
@@ -162,7 +161,7 @@ def recap_progress_message(subject: str = "") -> FlexMessage:
             margin="xs",
         ))
 
-    header_text = f"📖 {subject}の進み具合は？" if subject else "📖 進み具合は？"
+    header_text = f"📖 {subject}の理解度は？" if subject else "📖 理解度は？"
     bubble = FlexBubble(
         size="kilo",
         header=FlexBox(

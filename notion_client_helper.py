@@ -16,8 +16,8 @@ WEEKDAY_JP = ["月", "火", "水", "木", "金", "土", "日"]
 
 ENERGY_TO_JP = {"great": "頑張れた！", "ok": "まあまあ", "bad": "イマイチ"}
 PROGRESS_TO_JP = {
-    "start": "始めた", "little": "少し進んだ",
-    "half": "半分くらい", "almost": "ほぼ完了", "done": "完了！",
+    "perfect": "バッチリ！", "ok": "まあまあ",
+    "hard": "難しかった", "untouched": "手つかず",
 }
 
 
@@ -196,6 +196,23 @@ def get_upcoming_exams() -> list:
         if name:
             exams.append({"name": name, "days_left": days_left})
     return sorted(exams, key=lambda x: x["days_left"])
+
+
+def get_yesterday_understanding() -> dict:
+    yesterday = str(datetime.now(JST).date() - timedelta(days=1))
+    res = notion.databases.query(
+        database_id=LOG_DATABASE_ID,
+        filter={"property": "記録日", "date": {"equals": yesterday}},
+    )["results"]
+    result = {}
+    for page in res:
+        detail_rt = page["properties"].get("記録詳細", {}).get("rich_text", [])
+        detail = detail_rt[0]["plain_text"] if detail_rt else ""
+        for line in detail.strip().split("\n"):
+            parts = line.split("::")
+            if len(parts) == 3:
+                result[parts[0]] = parts[2]  # 科目名: 理解度
+    return result
 
 
 # ── StudyLog ─────────────────────────────────────────
