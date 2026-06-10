@@ -24,7 +24,7 @@ from notion_client_helper import (
     get_yesterday_skips,
     get_yesterday_understanding,
     get_today_log,
-    reset_active_log,
+    ensure_active_log,
     get_streak,
     get_recorded_subjects,
     get_current_subject,
@@ -153,9 +153,24 @@ def handle_postback(event):
     if keys == {"menu"}:
         action = params["menu"]
         if action == "morning":
-            send_reply(reply_token, morning_check_message())
-        elif action == "evening":
-            send_reply(reply_token, evening_check_message())
+            subjects, today_label = get_today_subjects()
+            understanding = get_yesterday_understanding()
+            header, tasks_data, tone = generate_tasks_structured(
+                subjects, today_label, energy="mid", time="mid", understanding=understanding
+            )
+            msgs = [TextMessage(text=header)]
+            if tasks_data:
+                flex = build_task_flex(tasks_data)
+                if flex:
+                    msgs.append(flex)
+            msgs.append(TextMessage(text=tone))
+            send_reply(reply_token, msgs)
+        elif action == "record":
+            ensure_active_log()
+            today_subjects, _ = get_today_subjects()
+            all_subjects = get_all_subjects()
+            recorded = get_recorded_subjects()
+            send_reply(reply_token, subject_select_message(today_subjects, all_subjects, recorded))
         elif action == "weekly":
             send_reply(reply_token, TextMessage(text=build_report()))
         elif action == "streak":
@@ -170,13 +185,6 @@ def handle_postback(event):
         elif action == "today_log":
             log = get_today_log()
             send_reply(reply_token, _build_today_log_flex(log))
-        elif action == "reset":
-            count = reset_active_log()
-            if count:
-                msg = "途中データをリセットしたよ。夜の振り返りをやり直せます。"
-            else:
-                msg = "リセットするデータはなかったよ。"
-            send_reply(reply_token, TextMessage(text=msg))
 
     # ── 朝のチェックフロー ──────────────────────────────
     elif keys == {"energy"}:

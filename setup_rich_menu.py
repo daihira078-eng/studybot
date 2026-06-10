@@ -25,11 +25,11 @@ CW, CH = W // COLS, H // ROWS
 
 CELLS = [
     {"label": "朝の課題",    "accent": (255, 165, 0),   "data": "menu=morning",   "display": "朝の課題を見る"},
-    {"label": "夜の振り返り","accent": (100, 120, 220),  "data": "menu=evening",   "display": "夜の振り返り"},
+    {"label": "勉強を記録",  "accent": (100, 120, 220),  "data": "menu=record",    "display": "勉強を記録する"},
     {"label": "今日の記録",  "accent": (0,  180, 160),   "data": "menu=today_log", "display": "今日の記録を確認"},
     {"label": "今週の記録",  "accent": (80, 190, 100),   "data": "menu=weekly",    "display": "今週の記録"},
     {"label": "ストリーク",  "accent": (240, 80,  80),   "data": "menu=streak",    "display": "ストリーク確認"},
-    {"label": "リセット",    "accent": (180, 180, 180),  "data": "menu=reset",     "display": "ログリセット"},
+    {"label": "夜の振り返り","accent": (130, 80,  200),  "data": "menu=evening",   "display": "夜の振り返り"},
 ]
 
 POSITIONS = [
@@ -124,7 +124,27 @@ def draw_reset(draw, cx, cy, r, color, lw=12):
     ], fill=color)
 
 
-DRAW_ICONS = [draw_sun, draw_moon, draw_clipboard, draw_barchart, draw_flame, draw_reset]
+def draw_pencil(draw, cx, cy, r, color, lw=12):
+    angle = math.radians(45)
+    dx, dy = int(r * math.cos(angle)), int(r * math.sin(angle))
+    pts = [
+        (cx - dx, cy + dy),
+        (cx + dx, cy - dy),
+        (cx + dx + int(r*0.25), cy - dy + int(r*0.25)),
+        (cx - dx + int(r*0.25), cy + dy + int(r*0.25)),
+    ]
+    draw.polygon(pts, outline=color, fill=None)
+    draw.line([pts[0], pts[1]], fill=color, width=lw)
+    draw.line([pts[1], pts[2]], fill=color, width=lw)
+    draw.line([pts[2], pts[3]], fill=color, width=lw)
+    draw.line([pts[3], pts[0]], fill=color, width=lw)
+    tip_x = cx - dx - int(r*0.3)
+    tip_y = cy + dy + int(r*0.3)
+    draw.line([pts[3][0], pts[3][1], tip_x, tip_y], fill=color, width=lw)
+    draw.line([pts[0][0], pts[0][1], tip_x, tip_y], fill=color, width=lw)
+
+
+DRAW_ICONS = [draw_sun, draw_pencil, draw_clipboard, draw_barchart, draw_flame, draw_moon]
 
 
 def create_image(path="rich_menu.png"):

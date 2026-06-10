@@ -45,12 +45,23 @@ def build_task_flex(subjects_tasks: list) -> FlexMessage:
 
         # ボディ
         body_contents = []
+        theme = item.get("theme", "")
+        if theme:
+            body_contents.append(FlexBox(
+                layout="horizontal",
+                margin="none",
+                contents=[
+                    FlexText(text="📌", size="sm", flex=0),
+                    FlexText(text=theme, size="sm", color=color, weight="bold", margin="xs", wrap=True),
+                ],
+            ))
         if not tasks:
             body_contents.append(FlexText(
                 text="内容を確認しよう",
                 wrap=True,
                 size="sm",
                 color="#aaaaaa",
+                margin="sm",
             ))
         else:
             for j, task in enumerate(tasks):

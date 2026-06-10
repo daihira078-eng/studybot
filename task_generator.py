@@ -68,12 +68,13 @@ def _ask_ai(subjects: list, today_label: str, energy: str, time: str, understand
 勉強する科目：
 {subject_lines}
 
-各科目に対して、今日やるべき具体的な課題を{task_count}個ずつ命令口調で提示してください。
+各科目に対して、今日扱うトピックを1つ決め、そのトピックの具体的な課題を{task_count}個ずつ命令口調で提示してください。
 難易度は「{difficulty}」を意識して設定してください。
 メモがある場合はそれを最優先で参考にし、ない場合は科目名から内容を推測して、具体的なトピック・問題タイプ・章を指定した課題にしてください。
 昨日の理解度も考慮して内容を調整してください。
-フォーマット：
+フォーマット（このフォーマット厳守）：
 ■ 科目名
+  【テーマ】テーマ名
   → 課題内容
 
 絵文字・余計な説明は不要。課題だけを簡潔に。"""
@@ -112,9 +113,16 @@ def _parse_tasks(text: str) -> list:
             continue
         lines = block.split('\n')
         name = lines[0].strip()
-        tasks = [l.strip().lstrip('→').strip() for l in lines[1:] if '→' in l]
+        theme = ""
+        tasks = []
+        for line in lines[1:]:
+            line = line.strip()
+            if "【テーマ】" in line:
+                theme = line.replace("【テーマ】", "").strip().lstrip("：: ").strip()
+            elif '→' in line:
+                tasks.append(line.lstrip('→').strip())
         if name:
-            result.append({"name": name, "tasks": tasks})
+            result.append({"name": name, "theme": theme, "tasks": tasks})
     return result
 
 

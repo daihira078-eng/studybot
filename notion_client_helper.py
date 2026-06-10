@@ -264,6 +264,13 @@ def _fmt_minutes(total: int) -> str:
     return f"{h}時間{m}分" if m else f"{h}時間"
 
 
+def ensure_active_log(default_energy: str = "ok"):
+    for status in ["科目待ち", "時間待ち", "進行度待ち", "継続確認"]:
+        if _get_log_entry(status):
+            return
+    create_draft_log(default_energy)
+
+
 def create_draft_log(energy: str):
     notion.pages.create(
         parent={"database_id": LOG_DATABASE_ID},
