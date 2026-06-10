@@ -6,56 +6,90 @@ from linebot.v3.messaging import (
 
 COLORS = ["#4A90D9", "#7B68EE", "#48A999", "#E8834E", "#C05780"]
 
+DIFFICULTY_BADGE = {
+    "易":   ("★☆☆", "#4CAF50"),
+    "普通": ("★★☆", "#FF9800"),
+    "難":   ("★★★", "#F44336"),
+    "easy":   ("★☆☆", "#4CAF50"),
+    "normal": ("★★☆", "#FF9800"),
+    "hard":   ("★★★", "#F44336"),
+}
 
-def build_task_flex(subjects_tasks: list, tone: str = "") -> FlexMessage:
+NUMBERS = ["①", "②", "③", "④", "⑤"]
+
+
+def build_task_flex(subjects_tasks: list) -> FlexMessage:
     bubbles = []
 
     for i, item in enumerate(subjects_tasks):
         name = item["name"]
         tasks = item["tasks"]
+        difficulty = item.get("difficulty", "")
+        days_left = item.get("days_left")
         color = COLORS[i % len(COLORS)]
 
-        body_contents = []
-        for task in tasks:
-            body_contents.append(FlexText(
-                text=f"→ {task}",
-                wrap=True,
+        badge_text, badge_color = DIFFICULTY_BADGE.get(difficulty, (None, None))
+
+        # ヘッダー
+        header_contents = [
+            FlexText(text=name, weight="bold", size="lg", color="#FFFFFF", wrap=True, flex=1),
+        ]
+        if badge_text:
+            header_contents.append(FlexText(
+                text=badge_text,
                 size="sm",
-                color="#444444",
-                margin="sm",
+                color=badge_color or "#FFFFFF",
+                align="end",
+                flex=0,
             ))
 
-        if not body_contents:
+        # ボディ
+        body_contents = []
+        if not tasks:
             body_contents.append(FlexText(
                 text="内容を確認しよう",
                 wrap=True,
                 size="sm",
                 color="#aaaaaa",
             ))
+        else:
+            for j, task in enumerate(tasks):
+                num = NUMBERS[j] if j < len(NUMBERS) else f"{j+1}."
+                body_contents.append(FlexBox(
+                    layout="horizontal",
+                    margin="sm",
+                    contents=[
+                        FlexText(text=num, size="sm", color=color, flex=0, weight="bold"),
+                        FlexText(text=task, wrap=True, size="sm", color="#333333", margin="sm"),
+                    ],
+                ))
 
-        if tone:
+        if days_left is not None and 0 <= days_left <= 60:
             body_contents.append(FlexSeparator(margin="md"))
+            if days_left == 0:
+                countdown = "今日が試験日！"
+                countdown_color = "#F44336"
+            elif days_left <= 7:
+                countdown = f"試験まであと {days_left} 日！"
+                countdown_color = "#FF9800"
+            else:
+                countdown = f"試験まであと {days_left} 日"
+                countdown_color = "#888888"
             body_contents.append(FlexText(
-                text=tone,
+                text=f"📅 {countdown}",
                 size="xs",
-                color="#888888",
+                color=countdown_color,
                 margin="sm",
-                wrap=True,
+                weight="bold",
             ))
 
         bubble = FlexBubble(
             size="kilo",
             header=FlexBox(
-                layout="vertical",
+                layout="horizontal",
                 background_color=color,
                 padding_all="lg",
-                contents=[FlexText(
-                    text=name,
-                    weight="bold",
-                    size="lg",
-                    color="#FFFFFF",
-                    wrap=True,
-                )],
+                contents=header_contents,
             ),
             body=FlexBox(
                 layout="vertical",

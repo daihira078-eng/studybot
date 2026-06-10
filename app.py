@@ -16,6 +16,7 @@ from evening_recap import (
 )
 from notion_client_helper import (
     get_today_subjects,
+    get_all_subjects,
     get_yesterday_skips,
     get_recorded_subjects,
     get_current_subject,
@@ -94,9 +95,10 @@ def handle_postback(event):
     # ── 夜の振り返りフロー ──────────────────────────────
     elif keys == {"recap_energy"}:
         create_draft_log(params["recap_energy"])
-        subjects, _ = get_today_subjects()
+        today_subjects, _ = get_today_subjects()
+        all_subjects = get_all_subjects()
         recorded = get_recorded_subjects()
-        send_reply(reply_token, subject_select_message(subjects, recorded))
+        send_reply(reply_token, subject_select_message(today_subjects, all_subjects, recorded))
 
     elif keys == {"recap_subject"}:
         subject = params["recap_subject"]
@@ -112,14 +114,15 @@ def handle_postback(event):
         send_reply(reply_token, ask_continue_message())
 
     elif keys == {"recap_continue"}:
-        subjects, _ = get_today_subjects()
+        today_subjects, _ = get_today_subjects()
+        all_subjects = get_all_subjects()
         recorded = get_recorded_subjects()
-        available = [s for s in subjects if s["name"] not in recorded]
+        available = [s for s in all_subjects if s["name"] not in recorded]
         if not available:
             records, total_min = finalize_evening_log()
             send_reply(reply_token, TextMessage(text=_build_summary(records, total_min)))
         else:
-            send_reply(reply_token, subject_select_message(subjects, recorded))
+            send_reply(reply_token, subject_select_message(today_subjects, all_subjects, recorded))
 
     elif keys == {"recap_done"}:
         records, total_min = finalize_evening_log()

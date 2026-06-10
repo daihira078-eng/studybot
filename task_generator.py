@@ -110,6 +110,11 @@ def generate_tasks_structured(subjects: list, today_label: str, energy: str = "m
     parsed = _parse_tasks(body_text)
     if not parsed:
         parsed = [{"name": s["name"], "tasks": []} for s in subjects]
+    subject_map = {s["name"]: s for s in subjects}
+    for item in parsed:
+        s = subject_map.get(item["name"], {})
+        item["difficulty"] = s.get("difficulty", "")
+        item["days_left"] = s.get("days_left")
     return header, parsed, tone
 
 

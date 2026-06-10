@@ -106,15 +106,41 @@ def get_today_subjects():
             rt = props[keys["rich_text"]]["rich_text"]
             memo = rt[0]["plain_text"] if rt else ""
 
+        exam_date_prop = props.get("試験日", {}).get("date")
+        days_left = None
+        if exam_date_prop:
+            from datetime import datetime as _dt
+            exam_dt = _dt.strptime(exam_date_prop["start"], "%Y-%m-%d").date()
+            days_left = (exam_dt - datetime.now(JST).date()).days
+
         subjects.append({
             "name": name,
             "category": selects[1] if len(selects) > 1 else "",
             "difficulty": selects[0] if len(selects) > 0 else "",
             "memo": memo,
             "detail": _get_page_detail(page["id"]),
+            "days_left": days_left,
         })
 
     return subjects, today_label
+
+
+def get_all_subjects():
+    db = notion.databases.retrieve(database_id=DATABASE_ID)
+    keys = _detect_props(db["properties"])
+    all_pages = notion.databases.query(database_id=DATABASE_ID)
+    subjects = []
+    for page in all_pages["results"]:
+        props = page["properties"]
+        if keys["checkbox"] and not props[keys["checkbox"]]["checkbox"]:
+            continue
+        name = ""
+        if keys["title"]:
+            title_list = props[keys["title"]]["title"]
+            name = title_list[0]["plain_text"] if title_list else ""
+        if name:
+            subjects.append({"name": name})
+    return subjects
 
 
 # ── ストリーク・スキップ繰り越し・試験日 ──────────────────

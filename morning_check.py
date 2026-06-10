@@ -1,16 +1,13 @@
 from linebot.v3.messaging import (
-    TextMessage,
-    QuickReply,
-    QuickReplyItem,
+    FlexMessage, FlexBubble,
+    FlexBox, FlexText, FlexButton, FlexSeparator,
     PostbackAction,
 )
 
-ENERGY_LABELS = {"high": "良好", "mid": "普通", "low": "疲れ気味"}
-
 TIME_OPTIONS = {
-    "low":  [("30分未満",   "short"), ("30分〜1時間", "mid"), ("1〜2時間",  "long")],
-    "mid":  [("30分〜1時間","short"), ("1〜2時間",   "mid"), ("2時間以上", "long")],
-    "high": [("1〜2時間",  "short"), ("2〜4時間",   "mid"), ("4時間以上", "long")],
+    "low":  [("30分未満", "short"), ("30分〜1時間", "mid"), ("1〜2時間", "long")],
+    "mid":  [("30分〜1時間", "short"), ("1〜2時間", "mid"), ("2時間以上", "long")],
+    "high": [("1〜2時間", "short"), ("2〜4時間", "mid"), ("4時間以上", "long")],
 }
 
 TIME_LABELS = {
@@ -25,31 +22,129 @@ TIME_LABELS = {
     ("high", "long"):  "4時間以上",
 }
 
-
-def morning_check_message(header: str = ""):
-    text = f"{header}\nおはよう！今日の体調を教えて。" if header else "おはよう！今日の体調を教えて。"
-    return TextMessage(
-        text=text,
-        quick_reply=QuickReply(items=[
-            QuickReplyItem(action=PostbackAction(label="良好",     data="energy=high", display_text="良好")),
-            QuickReplyItem(action=PostbackAction(label="普通",     data="energy=mid",  display_text="普通")),
-            QuickReplyItem(action=PostbackAction(label="疲れ気味", data="energy=low",  display_text="疲れ気味")),
-        ]),
-    )
+ENERGY_LABELS = {"high": "良好 💪", "mid": "普通 😊", "low": "疲れ気味 😴"}
+ENERGY_COLORS = {"high": "#4CAF50", "mid": "#FF9800", "low": "#9E9E9E"}
 
 
-def time_check_message(energy: str):
-    label = ENERGY_LABELS.get(energy, "普通")
-    options = TIME_OPTIONS.get(energy, TIME_OPTIONS["mid"])
-    items = [
-        QuickReplyItem(action=PostbackAction(
-            label=opt_label,
-            data=f"energy={energy}&time={opt_key}",
-            display_text=opt_label,
-        ))
-        for opt_label, opt_key in options
+def morning_check_message(header: str = "") -> FlexMessage:
+    body_contents = [
+        FlexText(
+            text="今日の体調を教えて",
+            size="md",
+            color="#333333",
+            weight="bold",
+        ),
     ]
-    return TextMessage(
-        text=f"体調:{label}だね。今日使える時間は？",
-        quick_reply=QuickReply(items=items),
+
+    if header:
+        body_contents.append(FlexSeparator(margin="md"))
+        for line in header.split("\n"):
+            if line.strip():
+                body_contents.append(FlexText(
+                    text=line.strip(),
+                    size="sm",
+                    color="#888888",
+                    wrap=True,
+                    margin="sm",
+                ))
+
+    body_contents.append(FlexSeparator(margin="lg"))
+
+    button_defs = [
+        ("💪 良好", "energy=high", "#4CAF50"),
+        ("😊 普通", "energy=mid",  "#FF9800"),
+        ("😴 疲れ気味", "energy=low", "#9E9E9E"),
+    ]
+    for label, data, color in button_defs:
+        body_contents.append(FlexButton(
+            action=PostbackAction(label=label, data=data, display_text=label),
+            style="primary",
+            color=color,
+            height="sm",
+            margin="sm",
+        ))
+
+    bubble = FlexBubble(
+        size="kilo",
+        header=FlexBox(
+            layout="vertical",
+            background_color="#FF9800",
+            padding_all="lg",
+            contents=[
+                FlexText(
+                    text="☀️ おはよう！",
+                    weight="bold",
+                    size="xl",
+                    color="#FFFFFF",
+                ),
+            ],
+        ),
+        body=FlexBox(
+            layout="vertical",
+            spacing="sm",
+            padding_all="lg",
+            contents=body_contents,
+        ),
     )
+    return FlexMessage(alt_text="おはよう！今日の体調は？", contents=bubble)
+
+
+def time_check_message(energy: str) -> FlexMessage:
+    energy_label = ENERGY_LABELS.get(energy, "普通 😊")
+    energy_color = ENERGY_COLORS.get(energy, "#FF9800")
+    options = TIME_OPTIONS.get(energy, TIME_OPTIONS["mid"])
+
+    body_contents = [
+        FlexBox(
+            layout="horizontal",
+            contents=[
+                FlexText(text="体調：", size="sm", color="#888888", flex=0),
+                FlexText(text=energy_label, size="sm", color=energy_color, weight="bold"),
+            ],
+        ),
+        FlexText(
+            text="今日使える時間は？",
+            size="md",
+            color="#333333",
+            weight="bold",
+            margin="md",
+        ),
+        FlexSeparator(margin="md"),
+    ]
+
+    for opt_label, opt_key in options:
+        body_contents.append(FlexButton(
+            action=PostbackAction(
+                label=opt_label,
+                data=f"energy={energy}&time={opt_key}",
+                display_text=opt_label,
+            ),
+            style="primary",
+            color="#4A90D9",
+            height="sm",
+            margin="sm",
+        ))
+
+    bubble = FlexBubble(
+        size="kilo",
+        header=FlexBox(
+            layout="vertical",
+            background_color="#4A90D9",
+            padding_all="lg",
+            contents=[
+                FlexText(
+                    text="⏰ 使える時間は？",
+                    weight="bold",
+                    size="lg",
+                    color="#FFFFFF",
+                ),
+            ],
+        ),
+        body=FlexBox(
+            layout="vertical",
+            spacing="sm",
+            padding_all="lg",
+            contents=body_contents,
+        ),
+    )
+    return FlexMessage(alt_text="今日使える時間は？", contents=bubble)
