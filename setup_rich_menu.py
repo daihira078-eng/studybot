@@ -22,10 +22,10 @@ W, H = 2500, 1686
 HW, HH = W // 2, H // 2
 
 CELLS = [
-    {"label": "朝の課題を見る", "emoji": "☀️", "color": (74, 144, 217),  "data": "menu_morning",  "display": "朝の課題を見る"},
-    {"label": "夜の振り返り",   "emoji": "🌙", "color": (63, 81, 181),   "data": "menu_evening",  "display": "夜の振り返り"},
-    {"label": "今週の記録",     "emoji": "📊", "color": (72, 169, 153),  "data": "menu_weekly",   "display": "今週の記録"},
-    {"label": "ストリーク確認", "emoji": "🔥", "color": (255, 152, 0),   "data": "menu_streak",   "display": "ストリーク確認"},
+    {"label": "朝の課題を見る", "emoji": "☀️", "color": (74, 144, 217),  "data": "menu=morning",  "display": "朝の課題を見る"},
+    {"label": "夜の振り返り",   "emoji": "🌙", "color": (63, 81, 181),   "data": "menu=evening",  "display": "夜の振り返り"},
+    {"label": "今週の記録",     "emoji": "📊", "color": (72, 169, 153),  "data": "menu=weekly",   "display": "今週の記録"},
+    {"label": "ストリーク確認", "emoji": "🔥", "color": (255, 152, 0),   "data": "menu=streak",   "display": "ストリーク確認"},
 ]
 
 POSITIONS = [

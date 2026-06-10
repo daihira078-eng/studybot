@@ -61,24 +61,23 @@ def handle_postback(event):
     keys = set(params.keys())
 
     # ── リッチメニュー ──────────────────────────────────
-    if keys == {"menu_morning"}:
-        send_reply(reply_token, morning_check_message())
-
-    elif keys == {"menu_evening"}:
-        send_reply(reply_token, evening_check_message())
-
-    elif keys == {"menu_weekly"}:
-        send_reply(reply_token, TextMessage(text=build_report()))
-
-    elif keys == {"menu_streak"}:
-        streak = get_streak()
-        if streak == 0:
-            msg = "まだ連続記録がないよ。今日から始めよう！"
-        elif streak == 1:
-            msg = "連続1日！今日も続けよう🔥"
-        else:
-            msg = f"🔥 {streak}日連続勉強中！この調子で！"
-        send_reply(reply_token, TextMessage(text=msg))
+    if keys == {"menu"}:
+        action = params["menu"]
+        if action == "morning":
+            send_reply(reply_token, morning_check_message())
+        elif action == "evening":
+            send_reply(reply_token, evening_check_message())
+        elif action == "weekly":
+            send_reply(reply_token, TextMessage(text=build_report()))
+        elif action == "streak":
+            streak = get_streak()
+            if streak == 0:
+                msg = "まだ連続記録がないよ。今日から始めよう！"
+            elif streak == 1:
+                msg = "連続1日！今日も続けよう🔥"
+            else:
+                msg = f"🔥 {streak}日連続勉強中！この調子で！"
+            send_reply(reply_token, TextMessage(text=msg))
 
     # ── 朝のチェックフロー ──────────────────────────────
     elif keys == {"energy"}:
