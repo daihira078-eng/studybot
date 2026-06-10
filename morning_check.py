@@ -68,7 +68,7 @@ def morning_check_message(header: str = "") -> FlexMessage:
         size="kilo",
         header=FlexBox(
             layout="vertical",
-            background_color="#FF9800",
+            background_color="#4A90D9",
             padding_all="lg",
             contents=[
                 FlexText(
