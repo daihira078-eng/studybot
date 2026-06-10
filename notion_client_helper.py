@@ -387,6 +387,46 @@ def finalize_evening_log():
     return records, total_minutes
 
 
+def get_today_log() -> dict:
+    today = str(datetime.now(JST).date())
+    res = notion.databases.query(
+        database_id=LOG_DATABASE_ID,
+        filter={"property": "記録日", "date": {"equals": today}},
+    )["results"]
+    morning = []
+    evening = []
+    total_minutes = 0
+    for page in res:
+        props = page["properties"]
+        subjects_rt = props.get("科目記録", {}).get("rich_text", [])
+        subjects_text = subjects_rt[0]["plain_text"] if subjects_rt else ""
+        detail_rt = props.get("記録詳細", {}).get("rich_text", [])
+        detail_text = detail_rt[0]["plain_text"] if detail_rt else ""
+        minutes = props.get("勉強時間(分)", {}).get("number") or 0
+        if subjects_text.startswith("✅") or subjects_text.startswith("⏭"):
+            morning.append(subjects_text)
+        elif detail_text:
+            for line in detail_text.strip().split("\n"):
+                parts = line.split("::")
+                if len(parts) == 3:
+                    evening.append({"subject": parts[0], "time": parts[1], "understanding": parts[2]})
+            total_minutes += minutes
+    return {"morning": morning, "evening": evening, "total_minutes": total_minutes}
+
+
+def reset_active_log():
+    reset_count = 0
+    for status in ["科目待ち", "時間待ち", "進行度待ち", "継続確認"]:
+        entry = _get_log_entry(status)
+        if entry:
+            notion.pages.update(
+                page_id=entry["id"],
+                properties={"状態": {"select": {"name": "完了"}}},
+            )
+            reset_count += 1
+    return reset_count
+
+
 def save_morning_result(subject: str, action: str):
     prefix = "✅" if action == "complete" else "⏭"
     notion.pages.create(

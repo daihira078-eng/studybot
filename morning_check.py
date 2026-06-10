@@ -1,8 +1,12 @@
+from datetime import datetime, timedelta, timezone
 from linebot.v3.messaging import (
     FlexMessage, FlexBubble,
     FlexBox, FlexText, FlexButton, FlexSeparator,
     PostbackAction,
 )
+
+_JST = timezone(timedelta(hours=9))
+_WEEKDAY_JP = ["月", "火", "水", "木", "金", "土", "日"]
 
 TIME_OPTIONS = {
     "low":  [("30分未満", "short"), ("30分〜1時間", "mid"), ("1〜2時間", "long")],
@@ -27,6 +31,9 @@ ENERGY_COLORS = {"high": "#4CAF50", "mid": "#FF9800", "low": "#9E9E9E"}
 
 
 def morning_check_message(header: str = "") -> FlexMessage:
+    now = datetime.now(_JST)
+    date_label = f"{now.month}/{now.day}（{_WEEKDAY_JP[now.weekday()]}）"
+
     body_contents = [
         FlexText(
             text="今日の体調を教えて",
@@ -71,12 +78,8 @@ def morning_check_message(header: str = "") -> FlexMessage:
             background_color="#4A90D9",
             padding_all="lg",
             contents=[
-                FlexText(
-                    text="☀️ おはよう！",
-                    weight="bold",
-                    size="xl",
-                    color="#FFFFFF",
-                ),
+                FlexText(text="☀️ おはよう！", weight="bold", size="xl", color="#FFFFFF"),
+                FlexText(text=date_label, size="sm", color="#C5E8FF"),
             ],
         ),
         body=FlexBox(

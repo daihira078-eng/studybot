@@ -20,6 +20,8 @@ from notion_client_helper import (
     get_all_subjects,
     get_yesterday_skips,
     get_yesterday_understanding,
+    get_today_log,
+    reset_active_log,
     get_recorded_subjects,
     get_current_subject,
     create_draft_log,
@@ -78,6 +80,16 @@ def handle_postback(event):
             else:
                 msg = f"🔥 {streak}日連続勉強中！この調子で！"
             send_reply(reply_token, TextMessage(text=msg))
+        elif action == "today_log":
+            log = get_today_log()
+            send_reply(reply_token, _build_today_log_flex(log))
+        elif action == "reset":
+            count = reset_active_log()
+            if count:
+                msg = "途中データをリセットしたよ。夜の振り返りをやり直せます。"
+            else:
+                msg = "リセットするデータはなかったよ。"
+            send_reply(reply_token, TextMessage(text=msg))
 
     # ── 朝のチェックフロー ──────────────────────────────
     elif keys == {"energy"}:
@@ -131,7 +143,7 @@ def handle_postback(event):
 
     elif keys == {"recap_no_study"}:
         finalize_log_no_study()
-        send_reply(reply_token, TextMessage(text="今日はゆっくり休んで！\n明日また頑張ろう。"))
+        send_reply(reply_token, _build_no_study_flex())
 
     elif keys == {"recap_progress"}:
         save_subject_progress(params["recap_progress"])
@@ -151,6 +163,65 @@ def handle_postback(event):
     elif keys == {"recap_done"}:
         records, total_min = finalize_evening_log()
         send_reply(reply_token, TextMessage(text=_build_summary(records, total_min)))
+
+
+def _build_today_log_flex(log: dict):
+    from linebot.v3.messaging import FlexMessage, FlexBubble, FlexBox, FlexText, FlexSeparator
+    from datetime import datetime, timedelta, timezone
+    today = datetime.now(timezone(timedelta(hours=9))).strftime("%-m/%-d") if False else \
+        f"{datetime.now(timezone(timedelta(hours=9))).month}/{datetime.now(timezone(timedelta(hours=9))).day}"
+    body = []
+    if log["morning"]:
+        body.append(FlexText(text="朝の課題", size="xs", color="#888888", weight="bold"))
+        for r in log["morning"]:
+            body.append(FlexText(text=r, size="sm", color="#333333", margin="xs"))
+    if log["evening"]:
+        if body:
+            body.append(FlexSeparator(margin="md"))
+        body.append(FlexText(text="今日の勉強", size="xs", color="#888888", weight="bold", margin="md" if not body else "none"))
+        for r in log["evening"]:
+            body.append(FlexText(
+                text=f"{r['subject']}  {r['time']}  {r['understanding']}",
+                size="sm", color="#333333", margin="xs", wrap=True,
+            ))
+        h, m = divmod(log["total_minutes"], 60)
+        total_str = f"{h}時間{m}分" if h and m else f"{h}時間" if h else f"{m}分" if m else "0分"
+        body.append(FlexSeparator(margin="md"))
+        body.append(FlexText(text=f"合計  {total_str}", size="sm", color="#333333", weight="bold", margin="sm"))
+    if not body:
+        body.append(FlexText(text="まだ今日の記録はないよ", size="sm", color="#888888"))
+    bubble = FlexBubble(
+        size="kilo",
+        header=FlexBox(layout="vertical", background_color="#4A90D9", padding_all="md",
+                       contents=[FlexText(text=f"📋 {today}の記録", weight="bold", size="lg", color="#FFFFFF")]),
+        body=FlexBox(layout="vertical", spacing="xs", padding_all="lg", contents=body),
+    )
+    return FlexMessage(alt_text="今日の記録", contents=bubble)
+
+
+def _build_no_study_flex():
+    from linebot.v3.messaging import FlexMessage, FlexBubble, FlexBox, FlexText
+    import random
+    messages = [
+        ("休息も大事な勉強だよ", "明日また頑張ろう💪"),
+        ("今日は無理せずでOK", "小さな一歩でも積み重なる"),
+        ("ゆっくり休んでね", "明日の自分に期待！"),
+    ]
+    title, sub = random.choice(messages)
+    bubble = FlexBubble(
+        size="kilo",
+        body=FlexBox(
+            layout="vertical",
+            spacing="sm",
+            padding_all="xl",
+            contents=[
+                FlexText(text="🌙", size="xxl", align="center"),
+                FlexText(text=title, size="lg", weight="bold", color="#333333", align="center", margin="md"),
+                FlexText(text=sub, size="sm", color="#888888", align="center", margin="sm"),
+            ],
+        ),
+    )
+    return FlexMessage(alt_text="今日はゆっくり休んで", contents=bubble)
 
 
 def _build_summary(records: list, total_min: int) -> str:

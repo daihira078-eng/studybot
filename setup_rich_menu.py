@@ -19,62 +19,96 @@ ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
 HEADERS = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
 W, H = 2500, 1686
-HW, HH = W // 2, H // 2
+COLS, ROWS = 3, 2
+CW, CH = W // COLS, H // ROWS  # 833, 843
 
 CELLS = [
-    {"label": "朝の課題を見る", "emoji": "☀️", "color": (74, 144, 217),  "data": "menu=morning",  "display": "朝の課題を見る"},
-    {"label": "夜の振り返り",   "emoji": "🌙", "color": (63, 81, 181),   "data": "menu=evening",  "display": "夜の振り返り"},
-    {"label": "今週の記録",     "emoji": "📊", "color": (72, 169, 153),  "data": "menu=weekly",   "display": "今週の記録"},
-    {"label": "ストリーク確認", "emoji": "🔥", "color": (255, 152, 0),   "data": "menu=streak",   "display": "ストリーク確認"},
+    {"label": "朝の課題",    "sub": "今日の課題を確認",   "base": (74,  144, 217), "data": "menu=morning",   "display": "朝の課題を見る"},
+    {"label": "夜の振り返り","sub": "今日の勉強を記録",    "base": (63,  81,  181), "data": "menu=evening",   "display": "夜の振り返り"},
+    {"label": "今日の記録",  "sub": "記録した内容を確認",  "base": (0,   137, 123), "data": "menu=today_log", "display": "今日の記録を確認"},
+    {"label": "今週の記録",  "sub": "週間レポートを表示",  "base": (67,  160, 71),  "data": "menu=weekly",    "display": "今週の記録"},
+    {"label": "ストリーク",  "sub": "連続勉強日数を確認",  "base": (251, 140, 0),   "data": "menu=streak",    "display": "ストリーク確認"},
+    {"label": "ログリセット","sub": "途中データを初期化",   "base": (117, 117, 117), "data": "menu=reset",     "display": "ログリセット"},
 ]
 
 POSITIONS = [
-    (0,  0,  HW, HH),
-    (HW, 0,  W,  HH),
-    (0,  HH, HW, H),
-    (HW, HH, W,  H),
+    (col * CW, row * CH, (col + 1) * CW, (row + 1) * CH)
+    for row in range(ROWS) for col in range(COLS)
 ]
+POSITIONS[-1] = (2 * CW, CH, W, H)  # 最後のセルを端まで広げる
 
 
-def _hex_to_rgb(h):
-    h = h.lstrip("#")
-    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+def lighten(color, f=0.4):
+    return tuple(min(255, int(c + (255 - c) * f)) for c in color)
 
 
-def create_image(path="rich_menu.png"):
-    img = Image.new("RGB", (W, H), (255, 255, 255))
-    draw = ImageDraw.Draw(img)
+def darken(color, f=0.25):
+    return tuple(max(0, int(c * (1 - f))) for c in color)
 
-    font_large = None
-    font_small = None
-    for font_path in [
+
+def draw_gradient(draw, x1, y1, x2, y2, color_top, color_bottom, steps=60):
+    for i in range(steps):
+        t = i / steps
+        r = int(color_top[0] + (color_bottom[0] - color_top[0]) * t)
+        g = int(color_top[1] + (color_bottom[1] - color_top[1]) * t)
+        b = int(color_top[2] + (color_bottom[2] - color_top[2]) * t)
+        y_from = y1 + (y2 - y1) * i // steps
+        y_to   = y1 + (y2 - y1) * (i + 1) // steps
+        draw.rectangle([x1, y_from, x2, y_to], fill=(r, g, b))
+
+
+def load_font(size):
+    for path in [
         "C:/Windows/Fonts/YuGothB.ttc",
         "C:/Windows/Fonts/meiryob.ttc",
         "C:/Windows/Fonts/msgothic.ttc",
+        "C:/Windows/Fonts/arial.ttf",
     ]:
         try:
-            font_large = ImageFont.truetype(font_path, 110)
-            font_small = ImageFont.truetype(font_path, 75)
-            break
+            return ImageFont.truetype(path, size)
         except Exception:
             continue
-    if font_large is None:
-        font_large = ImageFont.load_default()
-        font_small = font_large
+    return ImageFont.load_default()
+
+
+def create_image(path="rich_menu.png"):
+    img = Image.new("RGB", (W, H), (30, 30, 30))
+    draw = ImageDraw.Draw(img)
+
+    font_main = load_font(95)
+    font_sub  = load_font(52)
 
     for cell, (x1, y1, x2, y2) in zip(CELLS, POSITIONS):
-        draw.rectangle([x1, y1, x2 - 1, y2 - 1], fill=cell["color"])
-        draw.rectangle([x1, y1, x2 - 1, y2 - 1], outline=(255, 255, 255), width=6)
+        base  = cell["base"]
+        top   = lighten(base, 0.35)
+        bot   = darken(base, 0.20)
+
+        draw_gradient(draw, x1, y1, x2, y2, top, bot)
+
+        # 左端アクセントライン
+        draw.rectangle([x1, y1, x1 + 8, y2], fill=(255, 255, 255, 80))
+
+        # セパレーター
+        draw.rectangle([x1, y1, x2, y1 + 3], fill=(255, 255, 255))
+        draw.rectangle([x1, y1, x1 + 3, y2], fill=(255, 255, 255))
 
         cx = (x1 + x2) // 2
         cy = (y1 + y2) // 2
 
-        # ラベルテキスト
-        text = cell["label"]
-        bbox = draw.textbbox((0, 0), text, font=font_large)
-        tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
-        draw.text((cx - tw // 2, cy - th // 2), text, fill=(255, 255, 255), font=font_large)
+        # メインラベル（少し上寄せ）
+        bbox = draw.textbbox((0, 0), cell["label"], font=font_main)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        draw.text((cx - tw // 2, cy - th // 2 - 40), cell["label"],
+                  fill=(255, 255, 255), font=font_main)
+
+        # サブラベル
+        bbox2 = draw.textbbox((0, 0), cell["sub"], font=font_sub)
+        tw2 = bbox2[2] - bbox2[0]
+        draw.text((cx - tw2 // 2, cy + th // 2 + 10), cell["sub"],
+                  fill=(255, 255, 255, 180), font=font_sub)
+
+    # 外枠
+    draw.rectangle([0, 0, W - 1, H - 1], outline=(255, 255, 255), width=4)
 
     img.save(path)
     print(f"画像生成: {path}")
