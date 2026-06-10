@@ -8,16 +8,30 @@ load_dotenv()
 
 ENERGY_LABELS = {"high": "良好", "mid": "普通", "low": "疲れ気味"}
 
+# (energy, time) → (課題数, 難易度ヒント)
+# 時間が優先、体調が量を調整
+TASK_CONFIG = {
+    ("low",  "short"): (1, "易しめ"),   # 30分未満
+    ("low",  "mid"):   (1, "易しめ"),   # 30分〜1時間
+    ("low",  "long"):  (1, "普通"),     # 1〜2時間・疲れ→1個
+    ("mid",  "short"): (1, "普通"),     # 30分〜1時間
+    ("mid",  "mid"):   (2, "難し目"),   # 1〜2時間・2個→難し目
+    ("mid",  "long"):  (3, "普通"),     # 2時間以上・3個→普通目
+    ("high", "short"): (2, "難し目"),   # 1〜2時間・2個→難し目
+    ("high", "mid"):   (3, "普通"),     # 2〜4時間・3個→普通目
+    ("high", "long"):  (3, "難し目"),   # 4時間以上・難し目
+}
+
 MAX_SUBJECTS = {
     ("low",  "short"): 1,
     ("low",  "mid"):   1,
-    ("low",  "long"):  2,
+    ("low",  "long"):  1,
     ("mid",  "short"): 1,
     ("mid",  "mid"):   2,
-    ("mid",  "long"):  3,
+    ("mid",  "long"):  2,
     ("high", "short"): 2,
-    ("high", "mid"):   3,
-    ("high", "long"):  99,
+    ("high", "mid"):   2,
+    ("high", "long"):  3,
 }
 
 
@@ -46,7 +60,7 @@ def _ask_ai(subjects: list, today_label: str, energy: str, time: str, understand
         if lines:
             understanding_lines = "\n昨日の理解度：\n" + "\n".join(lines) + "\n（「難しかった」は易しめに、「バッチリ！」は少し難しめに調整）"
 
-    task_count = {"high": "2〜3個", "mid": "1〜2個", "low": "1個"}.get(energy, "1〜2個")
+    task_count, difficulty = TASK_CONFIG.get((energy, time), (2, "普通"))
 
     prompt = f"""あなたは大学生の勉強をサポートするコーチです。
 今日（{today_label}曜日）の状況：体調={energy_label}、使える時間={time_label}
@@ -54,9 +68,10 @@ def _ask_ai(subjects: list, today_label: str, energy: str, time: str, understand
 勉強する科目：
 {subject_lines}
 
-各科目に対して、今日やるべき具体的な課題を{task_count}ずつ命令口調で提示してください。
+各科目に対して、今日やるべき具体的な課題を{task_count}個ずつ命令口調で提示してください。
+難易度は「{difficulty}」を意識して設定してください。
 メモがある場合はそれを最優先で参考にし、ない場合は科目名から内容を推測して、具体的なトピック・問題タイプ・章を指定した課題にしてください。
-難易度・使える時間・昨日の理解度に応じて内容を調整してください。
+昨日の理解度も考慮して内容を調整してください。
 フォーマット：
 ■ 科目名
   → 課題内容
