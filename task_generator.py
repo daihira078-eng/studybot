@@ -8,6 +8,12 @@ load_dotenv()
 
 ENERGY_LABELS = {"high": "良好", "mid": "普通", "low": "疲れ気味"}
 
+CATEGORY_PRIORITY = {"大学": 0, "資格": 1}
+
+
+def _subject_sort_key(s):
+    return CATEGORY_PRIORITY.get(s.get("category", ""), 99)
+
 # (energy, time) → (課題数, 難易度ヒント)
 # 時間が優先、体調が量を調整
 TASK_CONFIG = {
@@ -28,9 +34,9 @@ MAX_SUBJECTS = {
     ("low",  "long"):  1,
     ("mid",  "short"): 1,
     ("mid",  "mid"):   2,
-    ("mid",  "long"):  2,
+    ("mid",  "long"):  3,
     ("high", "short"): 2,
-    ("high", "mid"):   2,
+    ("high", "mid"):   3,
     ("high", "long"):  3,
 }
 
@@ -132,7 +138,7 @@ def _parse_tasks(text: str) -> list:
 
 def generate_tasks_structured(subjects: list, today_label: str, energy: str = "mid", time: str = "mid", understanding: dict = None):
     limit = MAX_SUBJECTS.get((energy, time), len(subjects))
-    subjects = subjects[:limit]
+    subjects = sorted(subjects, key=_subject_sort_key)[:limit]
     energy_label = ENERGY_LABELS.get(energy, "普通")
     time_label = TIME_LABELS.get((energy, time), "")
     header = f"=== 今日の勉強課題 ===\n{today_label}曜日（体調:{energy_label}・{time_label}）"
