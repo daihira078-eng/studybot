@@ -386,12 +386,8 @@ def handle_postback(event):
 
     # ── 自由課題フロー ──────────────────────────────────
     elif keys == {"free_subject"}:
-        send_reply(reply_token, _free_task_count_flex(params["free_subject"]))
-
-    elif keys == {"free_subject", "free_count"}:
         subject = get_subject_by_name(params["free_subject"])
-        count = int(params["free_count"])
-        parsed = generate_free_tasks(subject, count)
+        parsed = generate_free_tasks(subject, 3)
         flex = build_task_flex(parsed, show_footer=False)
         if flex:
             send_reply(reply_token, flex)
