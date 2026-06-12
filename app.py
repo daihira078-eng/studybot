@@ -39,7 +39,7 @@ from notion_client_helper import (
     save_morning_result,
     get_subject_by_name,
 )
-from task_generator import generate_tasks_structured, generate_free_tasks
+from task_generator import generate_tasks_structured, generate_free_tasks, generate_study_guide
 from flex_builder import build_task_flex
 from line_sender import send_reply
 from weekly_report import build_report
@@ -163,6 +163,35 @@ def _build_no_study_flex() -> FlexMessage:
         ),
     )
     return FlexMessage(alt_text="今日はゆっくり休んで", contents=bubble)
+
+
+def _build_study_guide_flex(subject_name: str, theme: str, guide: dict) -> FlexMessage:
+    steps = [
+        ("📖 インプット", guide.get("input",    "教科書・資料で概念を理解する")),
+        ("✏️ 演習",       guide.get("practice", "例題・練習問題を解く")),
+        ("✅ 確認",       guide.get("review",   "解いた問題を見直し、理解を確認する")),
+    ]
+    body_contents = []
+    for i, (label, text) in enumerate(steps):
+        if i > 0:
+            body_contents.append(FlexSeparator(margin="md"))
+        body_contents.append(FlexText(text=label, size="sm", color="#7B68EE", weight="bold", margin="md"))
+        body_contents.append(FlexText(text=text, size="sm", color="#333333", margin="xs", wrap=True))
+
+    bubble = FlexBubble(
+        size="kilo",
+        header=FlexBox(
+            layout="vertical",
+            background_color="#7B68EE",
+            padding_all="md",
+            contents=[
+                FlexText(text=subject_name, size="sm", color="#DDDDFF", weight="bold"),
+                FlexText(text=theme, size="md", color="#FFFFFF", weight="bold", margin="xs", wrap=True),
+            ],
+        ),
+        body=FlexBox(layout="vertical", spacing="xs", padding_all="lg", contents=body_contents),
+    )
+    return FlexMessage(alt_text=f"{theme}の進め方", contents=bubble)
 
 
 def _free_task_subject_flex(subjects: list) -> FlexMessage:
@@ -388,11 +417,15 @@ def handle_postback(event):
     elif keys == {"free_subject"}:
         subject = get_subject_by_name(params["free_subject"])
         parsed = generate_free_tasks(subject, 3)
-        flex = build_task_flex(parsed, show_footer=False)
+        flex = build_task_flex(parsed, show_footer=False, show_study_guide=True)
         if flex:
             send_reply(reply_token, flex)
         else:
             send_reply(reply_token, TextMessage(text=f"{params['free_subject']}の課題を生成できませんでした。"))
+
+    elif keys == {"study_subject", "study_theme"}:
+        guide = generate_study_guide(params["study_subject"], params["study_theme"])
+        send_reply(reply_token, _build_study_guide_flex(params["study_subject"], params["study_theme"], guide))
 
 
 @handler.add(MessageEvent, message=TextMessageContent)

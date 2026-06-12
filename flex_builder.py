@@ -18,7 +18,7 @@ DIFFICULTY_BADGE = {
 NUMBERS = ["①", "②", "③", "④", "⑤"]
 
 
-def build_task_flex(subjects_tasks: list, show_footer: bool = True) -> FlexMessage:
+def build_task_flex(subjects_tasks: list, show_footer: bool = True, show_study_guide: bool = False) -> FlexMessage:
     bubbles = []
 
     for i, item in enumerate(subjects_tasks):
@@ -64,6 +64,7 @@ def build_task_flex(subjects_tasks: list, show_footer: bool = True) -> FlexMessa
                 margin="sm",
             ))
         else:
+            tips = item.get("tips", [])
             for j, task in enumerate(tasks):
                 num = NUMBERS[j] if j < len(NUMBERS) else f"{j+1}."
                 body_contents.append(FlexBox(
@@ -74,6 +75,16 @@ def build_task_flex(subjects_tasks: list, show_footer: bool = True) -> FlexMessa
                         FlexText(text=task, wrap=True, size="sm", color="#333333", margin="sm"),
                     ],
                 ))
+                tip = tips[j] if j < len(tips) else ""
+                if tip:
+                    body_contents.append(FlexBox(
+                        layout="horizontal",
+                        margin="xs",
+                        contents=[
+                            FlexText(text="　", flex=0, size="xs"),
+                            FlexText(text=f"💡 {tip}", wrap=True, size="xs", color="#999999", margin="xs"),
+                        ],
+                    ))
 
         if days_left is not None and 0 <= days_left <= 60:
             body_contents.append(FlexSeparator(margin="md"))
@@ -94,32 +105,51 @@ def build_task_flex(subjects_tasks: list, show_footer: bool = True) -> FlexMessa
                 weight="bold",
             ))
 
-        footer = FlexBox(
-            layout="horizontal",
-            spacing="sm",
-            padding_all="sm",
-            contents=[
-                FlexButton(
-                    action=PostbackAction(
-                        label="✅ 完了",
-                        data=f"action=complete&subject={name}",
-                        display_text=f"✅ {name} 完了！",
+        if show_footer:
+            footer = FlexBox(
+                layout="horizontal",
+                spacing="sm",
+                padding_all="sm",
+                contents=[
+                    FlexButton(
+                        action=PostbackAction(
+                            label="✅ 完了",
+                            data=f"action=complete&subject={name}",
+                            display_text=f"✅ {name} 完了！",
+                        ),
+                        style="primary",
+                        color="#4CAF50",
+                        height="sm",
                     ),
-                    style="primary",
-                    color="#4CAF50",
-                    height="sm",
-                ),
-                FlexButton(
-                    action=PostbackAction(
-                        label="⏭ スキップ",
-                        data=f"action=skip&subject={name}",
-                        display_text=f"⏭ {name} スキップ",
+                    FlexButton(
+                        action=PostbackAction(
+                            label="⏭ スキップ",
+                            data=f"action=skip&subject={name}",
+                            display_text=f"⏭ {name} スキップ",
+                        ),
+                        style="secondary",
+                        height="sm",
                     ),
-                    style="secondary",
-                    height="sm",
-                ),
-            ],
-        ) if show_footer else None
+                ],
+            )
+        elif show_study_guide and theme:
+            footer = FlexBox(
+                layout="horizontal",
+                padding_all="sm",
+                contents=[
+                    FlexButton(
+                        action=PostbackAction(
+                            label="📖 進め方を見る",
+                            data=f"study_subject={name}&study_theme={theme}",
+                            display_text="進め方を確認",
+                        ),
+                        style="secondary",
+                        height="sm",
+                    ),
+                ],
+            )
+        else:
+            footer = None
 
         bubble = FlexBubble(
             size="kilo",

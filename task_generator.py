@@ -82,16 +82,18 @@ def _ask_ai(subjects: list, today_label: str, energy: str, time: str, understand
 ■ 科目名
 【テーマ】テーマ名
 → 課題1
+💡 課題1の勉強ヒント（1行、具体的に）
 → 課題2
+💡 課題2の勉強ヒント（1行、具体的に）
 
-※【テーマ】の行は必須。絵文字・余計な説明不要。課題のみ簡潔に。"""
+※【テーマ】行と💡行は必須。使う絵文字は→と💡のみ。課題と勉強ヒントのみ簡潔に。"""
 
     try:
         key = os.environ.get("GROQ_API_KEY", "")
         resp = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 512},
+            json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 700},
             timeout=30,
         )
         resp.raise_for_status()
@@ -122,6 +124,7 @@ def _parse_tasks(text: str) -> list:
         name = lines[0].strip()
         theme = ""
         tasks = []
+        tips = []
         for line in lines[1:]:
             line = line.strip()
             m = re.search(r'【[^】]*テーマ[^】]*】\s*[：:]?\s*(.+)', line)
@@ -131,8 +134,11 @@ def _parse_tasks(text: str) -> list:
                 theme = re.search(r'^テーマ\s*[：:]\s*(.+)', line).group(1).strip()
             elif '→' in line:
                 tasks.append(re.sub(r'^→\s*', '', line).strip())
+                tips.append("")
+            elif line.startswith('💡') and tips:
+                tips[-1] = re.sub(r'^💡\s*', '', line).strip()
         if name:
-            result.append({"name": name, "theme": theme, "tasks": tasks})
+            result.append({"name": name, "theme": theme, "tasks": tasks, "tips": tips})
     return result
 
 
@@ -175,15 +181,17 @@ def _ask_ai_free(subject: dict, count: int) -> str:
 ■ 科目名
 【テーマ】テーマ名
 → 課題1
+💡 課題1の勉強ヒント（1行、具体的に）
 → 課題2
+💡 課題2の勉強ヒント（1行、具体的に）
 
-※【テーマ】の行は必須。絵文字・余計な説明不要。課題のみ簡潔に。"""
+※【テーマ】行と💡行は必須。使う絵文字は→と💡のみ。課題と勉強ヒントのみ簡潔に。"""
     try:
         key = os.environ.get("GROQ_API_KEY", "")
         resp = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 512, "temperature": 0.9},
+            json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 700, "temperature": 0.9},
             timeout=30,
         )
         resp.raise_for_status()
@@ -191,6 +199,37 @@ def _ask_ai_free(subject: dict, count: int) -> str:
     except Exception as e:
         print(f"Groq error: {e}")
         return f"■ {subject['name']}\n【テーマ】-\n"
+
+
+def generate_study_guide(subject_name: str, theme: str) -> dict:
+    prompt = f"""大学生が「{subject_name}」の「{theme}」を効率よく学ぶための3ステップを教えてください。
+各ステップは1〜2文で具体的に。
+出力フォーマット（必ずこの形式で）：
+📖 インプット: ...
+✏️ 演習: ...
+✅ 確認: ..."""
+    try:
+        key = os.environ.get("GROQ_API_KEY", "")
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 300},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        text = resp.json()["choices"][0]["message"]["content"].strip()
+        steps = {}
+        for line in text.split("\n"):
+            if "インプット" in line and ":" in line:
+                steps["input"] = line.split(":", 1)[1].strip()
+            elif "演習" in line and ":" in line:
+                steps["practice"] = line.split(":", 1)[1].strip()
+            elif "確認" in line and ":" in line:
+                steps["review"] = line.split(":", 1)[1].strip()
+        return steps
+    except Exception as e:
+        print(f"Groq error: {e}")
+        return {}
 
 
 def generate_free_tasks(subject: dict, count: int) -> list:
