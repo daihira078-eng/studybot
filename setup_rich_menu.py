@@ -29,7 +29,7 @@ CELLS = [
     {"label": "今日の記録",  "accent": (0,  180, 160),   "data": "menu=today_log", "display": "今日の記録を確認"},
     {"label": "今週の記録",  "accent": (80, 190, 100),   "data": "menu=weekly",    "display": "今週の記録"},
     {"label": "ストリーク",  "accent": (240, 80,  80),   "data": "menu=streak",    "display": "ストリーク確認"},
-    {"label": "リセット",    "accent": (180, 180, 180),  "data": "menu=reset",     "display": "ログリセット"},
+    {"label": "自由課題",    "accent": (150, 100, 220),  "data": "menu=free_task", "display": "科目別に課題を出す"},
 ]
 
 POSITIONS = [
@@ -112,16 +112,17 @@ def draw_flame(draw, cx, cy, r, color, lw=12):
     draw.line(pts + [pts[0]], fill=color, width=lw)
 
 
-def draw_reset(draw, cx, cy, r, color, lw=12):
-    draw.arc([cx-r, cy-r, cx+r, cy+r], start=40, end=320, fill=color, width=lw)
-    ax = cx + int(r * math.cos(math.radians(40)))
-    ay = cy - int(r * math.sin(math.radians(-40)))
-    arrow_size = int(r * 0.35)
-    draw.polygon([
-        (ax, ay - arrow_size),
-        (ax + arrow_size, ay + arrow_size),
-        (ax - arrow_size, ay + arrow_size),
-    ], fill=color)
+def draw_book(draw, cx, cy, r, color, lw=12):
+    lx1, lx2 = cx - r, cx - int(r * 0.1)
+    rx1, rx2 = cx + int(r * 0.1), cx + r
+    top, bot = cy - int(r * 0.75), cy + int(r * 0.85)
+    draw.rectangle([lx1, top, lx2, bot], outline=color, width=lw)
+    draw.rectangle([rx1, top, rx2, bot], outline=color, width=lw)
+    draw.line([cx, top, cx, bot], fill=color, width=lw)
+    for offset in [-0.25, 0.1, 0.45]:
+        ly = cy + int(r * offset)
+        draw.line([lx1 + int(r*0.2), ly, lx2 - int(r*0.15), ly], fill=color, width=lw - 4)
+        draw.line([rx1 + int(r*0.15), ly, rx2 - int(r*0.2), ly], fill=color, width=lw - 4)
 
 
 def draw_pencil(draw, cx, cy, r, color, lw=12):
@@ -144,7 +145,7 @@ def draw_pencil(draw, cx, cy, r, color, lw=12):
     draw.line([pts[0][0], pts[0][1], tip_x, tip_y], fill=color, width=lw)
 
 
-DRAW_ICONS = [draw_sun, draw_pencil, draw_clipboard, draw_barchart, draw_flame, draw_reset]
+DRAW_ICONS = [draw_sun, draw_pencil, draw_clipboard, draw_barchart, draw_flame, draw_book]
 
 
 def create_image(path="rich_menu.png"):

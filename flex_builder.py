@@ -18,7 +18,7 @@ DIFFICULTY_BADGE = {
 NUMBERS = ["①", "②", "③", "④", "⑤"]
 
 
-def build_task_flex(subjects_tasks: list) -> FlexMessage:
+def build_task_flex(subjects_tasks: list, show_footer: bool = True) -> FlexMessage:
     bubbles = []
 
     for i, item in enumerate(subjects_tasks):
@@ -94,6 +94,33 @@ def build_task_flex(subjects_tasks: list) -> FlexMessage:
                 weight="bold",
             ))
 
+        footer = FlexBox(
+            layout="horizontal",
+            spacing="sm",
+            padding_all="sm",
+            contents=[
+                FlexButton(
+                    action=PostbackAction(
+                        label="✅ 完了",
+                        data=f"action=complete&subject={name}",
+                        display_text=f"✅ {name} 完了！",
+                    ),
+                    style="primary",
+                    color="#4CAF50",
+                    height="sm",
+                ),
+                FlexButton(
+                    action=PostbackAction(
+                        label="⏭ スキップ",
+                        data=f"action=skip&subject={name}",
+                        display_text=f"⏭ {name} スキップ",
+                    ),
+                    style="secondary",
+                    height="sm",
+                ),
+            ],
+        ) if show_footer else None
+
         bubble = FlexBubble(
             size="kilo",
             header=FlexBox(
@@ -108,32 +135,7 @@ def build_task_flex(subjects_tasks: list) -> FlexMessage:
                 padding_all="lg",
                 contents=body_contents,
             ),
-            footer=FlexBox(
-                layout="horizontal",
-                spacing="sm",
-                padding_all="sm",
-                contents=[
-                    FlexButton(
-                        action=PostbackAction(
-                            label="✅ 完了",
-                            data=f"action=complete&subject={name}",
-                            display_text=f"✅ {name} 完了！",
-                        ),
-                        style="primary",
-                        color="#4CAF50",
-                        height="sm",
-                    ),
-                    FlexButton(
-                        action=PostbackAction(
-                            label="⏭ スキップ",
-                            data=f"action=skip&subject={name}",
-                            display_text=f"⏭ {name} スキップ",
-                        ),
-                        style="secondary",
-                        height="sm",
-                    ),
-                ],
-            ),
+            footer=footer,
         )
         bubbles.append(bubble)
 

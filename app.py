@@ -6,7 +6,8 @@ from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import PostbackEvent, MessageEvent, TextMessageContent
 from linebot.v3.messaging import (
-    TextMessage, FlexMessage, FlexBubble, FlexBox, FlexText, FlexSeparator,
+    TextMessage, FlexMessage, FlexBubble, FlexBox, FlexText, FlexSeparator, FlexButton,
+    PostbackAction,
 )
 from dotenv import load_dotenv
 
@@ -36,8 +37,9 @@ from notion_client_helper import (
     finalize_log_no_study,
     finalize_evening_log,
     save_morning_result,
+    get_subject_by_name,
 )
-from task_generator import generate_tasks_structured
+from task_generator import generate_tasks_structured, generate_free_tasks
 from flex_builder import build_task_flex
 from line_sender import send_reply
 from weekly_report import build_report
@@ -163,6 +165,80 @@ def _build_no_study_flex() -> FlexMessage:
     return FlexMessage(alt_text="今日はゆっくり休んで", contents=bubble)
 
 
+def _free_task_subject_flex(subjects: list) -> FlexMessage:
+    cat_order = ["大学", "資格"]
+    groups: dict = {}
+    for s in subjects:
+        cat = s.get("category") or "その他"
+        groups.setdefault(cat, []).append(s["name"])
+
+    sorted_cats = sorted(groups.keys(), key=lambda c: cat_order.index(c) if c in cat_order else 99)
+
+    body_contents = []
+    for cat in sorted_cats:
+        if body_contents:
+            body_contents.append(FlexSeparator(margin="md"))
+        body_contents.append(FlexText(text=cat, size="xs", color="#888888", weight="bold", margin="md"))
+        for name in groups[cat]:
+            body_contents.append(FlexButton(
+                action=PostbackAction(
+                    label=name,
+                    data=f"free_subject={name}",
+                    display_text=f"{name}の課題を出して",
+                ),
+                style="secondary",
+                height="sm",
+                margin="xs",
+            ))
+
+    bubble = FlexBubble(
+        size="kilo",
+        header=FlexBox(
+            layout="vertical",
+            background_color="#7B68EE",
+            padding_all="md",
+            contents=[FlexText(text="どの科目の課題を出す？", weight="bold", size="lg", color="#FFFFFF")],
+        ),
+        body=FlexBox(layout="vertical", spacing="xs", padding_all="lg", contents=body_contents),
+    )
+    return FlexMessage(alt_text="科目を選んでください", contents=bubble)
+
+
+def _free_task_count_flex(subject_name: str) -> FlexMessage:
+    counts = [
+        ("少なめ (1個)", "1", "#4CAF50"),
+        ("普通 (2個)",   "2", "#2196F3"),
+        ("多め (3個)",   "3", "#FF9800"),
+    ]
+    buttons = [
+        FlexButton(
+            action=PostbackAction(
+                label=label,
+                data=f"free_subject={subject_name}&free_count={n}",
+                display_text=f"{label}で",
+            ),
+            style="primary",
+            color=color,
+            height="sm",
+        )
+        for label, n, color in counts
+    ]
+    bubble = FlexBubble(
+        size="kilo",
+        header=FlexBox(
+            layout="vertical",
+            background_color="#7B68EE",
+            padding_all="md",
+            contents=[
+                FlexText(text=subject_name, weight="bold", size="lg", color="#FFFFFF"),
+                FlexText(text="どれくらい課題を出す？", size="sm", color="#DDDDFF", margin="xs"),
+            ],
+        ),
+        body=FlexBox(layout="vertical", spacing="sm", padding_all="lg", contents=buttons),
+    )
+    return FlexMessage(alt_text="課題の量を選んでください", contents=bubble)
+
+
 def _build_summary(records: list, total_min: int) -> str:
     lines = ["今日の記録を保存したよ！\n"]
     for r in records:
@@ -221,10 +297,9 @@ def handle_postback(event):
             all_subjects = get_all_subjects()
             recorded = get_recorded_subjects()
             send_reply(reply_token, subject_select_message(today_subjects, all_subjects, recorded))
-        elif action == "reset":
-            count = reset_active_log()
-            msg = "途中データをリセットしたよ。やり直せます。" if count else "リセットするデータはなかったよ。"
-            send_reply(reply_token, TextMessage(text=msg))
+        elif action == "free_task":
+            all_subjects = get_all_subjects()
+            send_reply(reply_token, _free_task_subject_flex(all_subjects))
         elif action == "weekly":
             send_reply(reply_token, TextMessage(text=build_report()))
         elif action == "streak":
@@ -308,6 +383,20 @@ def handle_postback(event):
         finalize_evening_log()
         log = get_today_log()
         send_reply(reply_token, _build_today_summary_flex(log))
+
+    # ── 自由課題フロー ──────────────────────────────────
+    elif keys == {"free_subject"}:
+        send_reply(reply_token, _free_task_count_flex(params["free_subject"]))
+
+    elif keys == {"free_subject", "free_count"}:
+        subject = get_subject_by_name(params["free_subject"])
+        count = int(params["free_count"])
+        parsed = generate_free_tasks(subject, count)
+        flex = build_task_flex(parsed, show_footer=False)
+        if flex:
+            send_reply(reply_token, flex)
+        else:
+            send_reply(reply_token, TextMessage(text=f"{params['free_subject']}の課題を生成できませんでした。"))
 
 
 @handler.add(MessageEvent, message=TextMessageContent)

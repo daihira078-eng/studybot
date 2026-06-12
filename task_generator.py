@@ -157,6 +157,51 @@ def generate_tasks_structured(subjects: list, today_label: str, energy: str = "m
     return header, parsed, tone
 
 
+def _ask_ai_free(subject: dict, count: int) -> str:
+    subject_line = (
+        f"- {subject['name']}（カテゴリ:{subject['category']} / 難易度:{subject['difficulty']}"
+        + (f" / メモ:{subject['memo']}" if subject.get("memo") else "")
+        + ("）\n  [詳細]\n" + "\n".join(f"  {l}" for l in subject["detail"].splitlines()) if subject.get("detail") else "）")
+    )
+    prompt = f"""あなたは大学生の勉強をサポートするコーチです。
+勉強する科目：
+{subject_line}
+
+この科目のトピックを1つ決め、具体的な課題を{count}個、命令口調で提示してください。
+メモがある場合はそれを最優先で参考にし、具体的なトピック・問題タイプ・章を指定した課題にしてください。
+出力フォーマット（必ずこの形式で出力すること）：
+■ 科目名
+【テーマ】テーマ名
+→ 課題1
+→ 課題2
+
+※【テーマ】の行は必須。絵文字・余計な説明不要。課題のみ簡潔に。"""
+    try:
+        key = os.environ.get("GROQ_API_KEY", "")
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 512},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        print(f"Groq error: {e}")
+        return f"■ {subject['name']}\n【テーマ】-\n"
+
+
+def generate_free_tasks(subject: dict, count: int) -> list:
+    body_text = _ask_ai_free(subject, count)
+    parsed = _parse_tasks(body_text)
+    if not parsed:
+        parsed = [{"name": subject["name"], "theme": "", "tasks": []}]
+    for item in parsed:
+        item["difficulty"] = subject.get("difficulty", "")
+        item["days_left"] = subject.get("days_left")
+    return parsed
+
+
 def generate_tasks(subjects: list, today_label: str, energy: str = "mid", time: str = "mid") -> str:
     limit = MAX_SUBJECTS.get((energy, time), len(subjects))
     subjects = subjects[:limit]
