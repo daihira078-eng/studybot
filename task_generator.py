@@ -168,6 +168,8 @@ def _ask_ai_free(subject: dict, count: int) -> str:
 {subject_line}
 
 この科目のトピックを1つ決め、具体的な課題を{count}個、命令口調で提示してください。
+トピックは科目全体の幅広い範囲からランダムに選ぶこと。線形回帰など基礎的な内容に偏らず、
+発展的・応用的なトピックも積極的に選んでください。
 メモがある場合はそれを最優先で参考にし、具体的なトピック・問題タイプ・章を指定した課題にしてください。
 出力フォーマット（必ずこの形式で出力すること）：
 ■ 科目名
@@ -181,7 +183,7 @@ def _ask_ai_free(subject: dict, count: int) -> str:
         resp = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 512},
+            json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 512, "temperature": 0.9},
             timeout=30,
         )
         resp.raise_for_status()
