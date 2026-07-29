@@ -5,8 +5,6 @@ LINE × Notion × 生成AI（Groq API）で作った、自分専用の勉強習�
 
 <img src="docs/screenshot.jpg" width="360" alt="StudyBotのLINE画面。AIが生成した今日の勉強課題カードとリッチメニューが表示されている">
 
-**Demo:** https://studybot-ten.vercel.app
-
 ## 作った理由
 
 「やろうやろう詐欺」で勉強が続かないタイプだったので、外部から課題を与えられる仕組みを自分で作れば習慣化できるのでは、という発想で開発しました。意志力に頼らず、システム側が毎日きっかけを作ってくれる状態を目指しています。
